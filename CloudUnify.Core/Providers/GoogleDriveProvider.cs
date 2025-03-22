@@ -1,4 +1,6 @@
+using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
+using Google.Apis.Services;
 
 namespace CloudUnify.Core.Providers;
 
@@ -16,12 +18,34 @@ public class GoogleDriveProvider : ICloudProvider {
     public string Name => "Google Drive";
     public bool IsConnected => _driveService != null;
 
-    public Task<bool> ConnectAsync(string accessToken) {
-        throw new NotImplementedException();
+    public async Task<bool> ConnectAsync(string accessToken) {
+        try {
+            var credential = GoogleCredential.FromAccessToken(accessToken)
+                .CreateScoped(DriveService.Scope.Drive);
+
+            _driveService = new DriveService(new BaseClientService.Initializer {
+                HttpClientInitializer = credential,
+                ApplicationName = _applicationName
+            });
+
+            // Get user info to identify this account
+            var aboutRequest = _driveService.About.Get();
+            aboutRequest.Fields = "user";
+            var about = await aboutRequest.ExecuteAsync();
+            _userEmail = about.User.EmailAddress;
+
+            return true;
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error connecting to Google Drive: {ex.Message}");
+            return false;
+        }
     }
 
     public Task DisconnectAsync() {
-        throw new NotImplementedException();
+        _driveService = null;
+        _userEmail = string.Empty;
+        return Task.CompletedTask;
     }
 
     public Task<List<UnifiedCloudFile>> ListFilesAsync(string path = "/") {
