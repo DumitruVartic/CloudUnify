@@ -1,3 +1,6 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿namespace CloudUnify.Console;
 
-Console.WriteLine("Hello, World!");
+internal class Program {
+    private static async Task Main(string[] args) {
+    }
+}

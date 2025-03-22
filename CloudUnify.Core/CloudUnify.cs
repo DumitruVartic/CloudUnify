@@ -1,4 +1,4 @@
 ﻿namespace CloudUnify.Core;
 
-public class CloudUnify  {
+public class CloudUnify {
 }
