@@ -140,119 +140,92 @@ public class GoogleDriveProvider : ICloudProvider {
         await _driveService.Files.Delete(fileId).ExecuteAsync();
     }
 
-    public async Task<UnifiedCloudFile> MoveFileAsync(string fileId, string newPath)
-    {
-        if (_driveService == null)
-        {
-            throw new InvalidOperationException("Not connected to Google Drive");
-        }
-        
+    public async Task<UnifiedCloudFile> MoveFileAsync(string fileId, string newPath) {
+        if (_driveService == null) throw new InvalidOperationException("Not connected to Google Drive");
+
         // Get current file to get its parents
         var getRequest = _driveService.Files.Get(fileId);
         getRequest.Fields = "parents";
         var file = await getRequest.ExecuteAsync();
-        
+
         // Find new parent folder ID
-        string? newParentId = "root";
-        if (newPath != "/" && newPath != "root")
-        {
+        var newParentId = "root";
+        if (newPath != "/" && newPath != "root") {
             var pathParts = newPath.Trim('/').Split('/');
             newParentId = await GetFolderIdFromPathAsync(pathParts);
-            
-            if (newParentId == null)
-            {
-                throw new DirectoryNotFoundException($"Path not found: {newPath}");
-            }
+
+            if (newParentId == null) throw new DirectoryNotFoundException($"Path not found: {newPath}");
         }
-        
+
         // Move file
-        var updateRequest = _driveService.Files.Update(new Google.Apis.Drive.v3.Data.File(), fileId);
+        var updateRequest = _driveService.Files.Update(new File(), fileId);
         updateRequest.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
-        
+
         // Remove old parents and add new parent
         updateRequest.RemoveParents = string.Join(",", file.Parents);
         updateRequest.AddParents = newParentId;
-        
+
         var updatedFile = await updateRequest.ExecuteAsync();
-        
+
         return MapToUnifiedCloudFile(updatedFile, newPath);
     }
-    
-    public async Task<UnifiedCloudFile> CopyFileAsync(string fileId, string newPath)
-    {
-        if (_driveService == null)
-        {
-            throw new InvalidOperationException("Not connected to Google Drive");
-        }
-        
+
+    public async Task<UnifiedCloudFile> CopyFileAsync(string fileId, string newPath) {
+        if (_driveService == null) throw new InvalidOperationException("Not connected to Google Drive");
+
         // Find new parent folder ID
-        string? newParentId = "root";
-        if (newPath != "/" && newPath != "root")
-        {
+        var newParentId = "root";
+        if (newPath != "/" && newPath != "root") {
             var pathParts = newPath.Trim('/').Split('/');
             newParentId = await GetFolderIdFromPathAsync(pathParts);
-            
-            if (newParentId == null)
-            {
-                throw new DirectoryNotFoundException($"Path not found: {newPath}");
-            }
+
+            if (newParentId == null) throw new DirectoryNotFoundException($"Path not found: {newPath}");
         }
-        
+
         // Get file info
         var getRequest = _driveService.Files.Get(fileId);
         getRequest.Fields = "name";
         var sourceFile = await getRequest.ExecuteAsync();
-        
+
         // Copy file
-        var copyMetadata = new Google.Apis.Drive.v3.Data.File
-        {
+        var copyMetadata = new File {
             Name = sourceFile.Name,
             Parents = new List<string> { newParentId }
         };
-        
+
         var copyRequest = _driveService.Files.Copy(copyMetadata, fileId);
         copyRequest.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
-        
+
         var copiedFile = await copyRequest.ExecuteAsync();
-        
+
         return MapToUnifiedCloudFile(copiedFile, newPath);
     }
 
-    public async Task<UnifiedCloudFile> RenameFileAsync(string fileId, string newName)
-    {
-        if (_driveService == null)
-        {
-            throw new InvalidOperationException("Not connected to Google Drive");
-        }
-        
-        var fileMetadata = new Google.Apis.Drive.v3.Data.File
-        {
+    public async Task<UnifiedCloudFile> RenameFileAsync(string fileId, string newName) {
+        if (_driveService == null) throw new InvalidOperationException("Not connected to Google Drive");
+
+        var fileMetadata = new File {
             Name = newName
         };
-        
+
         var updateRequest = _driveService.Files.Update(fileMetadata, fileId);
         updateRequest.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
-        
+
         var updatedFile = await updateRequest.ExecuteAsync();
         var path = await GetPathFromFileIdAsync(fileId);
-        
+
         return MapToUnifiedCloudFile(updatedFile, path);
     }
-    
-    public async Task<CloudStorageInfo> GetStorageInfoAsync()
-    {
-        if (_driveService == null)
-        {
-            throw new InvalidOperationException("Not connected to Google Drive");
-        }
-        
+
+    public async Task<CloudStorageInfo> GetStorageInfoAsync() {
+        if (_driveService == null) throw new InvalidOperationException("Not connected to Google Drive");
+
         var aboutRequest = _driveService.About.Get();
         aboutRequest.Fields = "storageQuota, user";
-        
+
         var about = await aboutRequest.ExecuteAsync();
-        
-        return new CloudStorageInfo
-        {
+
+        return new CloudStorageInfo {
             ProviderId = Id,
             ProviderName = Name,
             UserEmail = about.User.EmailAddress,
