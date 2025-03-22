@@ -18,7 +18,11 @@ internal class Program {
         // Initialize CloudUnifyManager
         var manager = new CloudUnifyManager();
 
+        // Auto-connect to previously connected providers
+        await AutoConnectProvidersAsync(manager);
+
         try {
+            // Display menu
             var exit = false;
             while (!exit) {
                 System.Console.WriteLine("\nChoose an option:");
@@ -75,6 +79,47 @@ internal class Program {
         }
     }
 
+    private static async Task AutoConnectProvidersAsync(CloudUnifyManager manager) {
+        System.Console.WriteLine("Checking for previously connected providers...");
+
+        var connectedProviders = _providerStorage.GetConnectedProviders();
+
+        if (connectedProviders.Count == 0) {
+            System.Console.WriteLine("No previously connected providers found.");
+            return;
+        }
+
+        System.Console.WriteLine($"Found {connectedProviders.Count} previously connected providers. Attempting to reconnect...");
+
+        foreach (var provider in connectedProviders) {
+            if (string.IsNullOrEmpty(provider.UserId)) {
+                System.Console.WriteLine($"Skipping provider '{provider.Name}' (no user ID stored)");
+                continue;
+            }
+
+            System.Console.WriteLine($"Reconnecting to {provider.Name} as {provider.UserId}...");
+
+            try {
+                var connected = await manager.ConnectGoogleDriveAsync(provider.Id, provider.UserId);
+
+                if (connected) {
+                    System.Console.WriteLine($"Successfully reconnected to {provider.Name}!");
+                    _providerStorage.UpdateConnectionState(provider.Id, true);
+                }
+                else {
+                    System.Console.WriteLine($"Failed to reconnect to {provider.Name}.");
+                    _providerStorage.UpdateConnectionState(provider.Id, false);
+                }
+            }
+            catch (Exception ex) {
+                System.Console.WriteLine($"Error reconnecting to {provider.Name}: {ex.Message}");
+                _providerStorage.UpdateConnectionState(provider.Id, false);
+            }
+        }
+
+        System.Console.WriteLine("Auto-connection process completed.");
+    }
+
     private static void RegisterGoogleDriveProvider(CloudUnifyManager manager) {
         System.Console.WriteLine("\nRegistering Google Drive provider...");
 
@@ -125,6 +170,12 @@ internal class Program {
             System.Console.WriteLine($"  Name: {provider.Name}");
             System.Console.WriteLine($"  Type: {provider.Type}");
             System.Console.WriteLine($"  Added: {provider.AddedAt}");
+            System.Console.WriteLine($"  Connected: {(provider.IsConnected ? "Yes" : "No")}");
+            if (provider.IsConnected && provider.UserId != null) {
+                System.Console.WriteLine($"  User: {provider.UserId}");
+                System.Console.WriteLine($"  Last Connected: {provider.LastConnected}");
+            }
+
             System.Console.WriteLine();
         }
     }
@@ -141,7 +192,10 @@ internal class Program {
         }
 
         System.Console.WriteLine("Available providers:");
-        for (var i = 0; i < providers.Count; i++) System.Console.WriteLine($"{i + 1}. {providers[i].Name} ({providers[i].Id})");
+        for (var i = 0; i < providers.Count; i++) {
+            var connectionStatus = providers[i].IsConnected ? " (Connected)" : "";
+            System.Console.WriteLine($"{i + 1}. {providers[i].Name}{connectionStatus} ({providers[i].Id})");
+        }
 
         System.Console.Write("Select a provider (number): ");
         if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > providers.Count) {
@@ -152,25 +206,52 @@ internal class Program {
         var selectedProvider = providers[providerIndex - 1];
         var providerId = selectedProvider.Id;
 
-        System.Console.Write("Enter user ID (e.g., your email): ");
-        var userId = System.Console.ReadLine();
+        // Check if we already have a user ID for this provider
+        var userId = selectedProvider.UserId;
 
         if (string.IsNullOrEmpty(userId)) {
-            System.Console.WriteLine("User ID cannot be empty.");
-            return;
+            System.Console.Write("Enter user ID (e.g., your email): ");
+            userId = System.Console.ReadLine();
+
+            if (string.IsNullOrEmpty(userId)) {
+                System.Console.WriteLine("User ID cannot be empty.");
+                return;
+            }
+        }
+        else {
+            System.Console.WriteLine($"Using stored user ID: {userId}");
+            System.Console.Write("Use a different user ID? (y/n): ");
+            var changeUser = System.Console.ReadLine()?.ToLower();
+
+            if (changeUser == "y" || changeUser == "yes") {
+                System.Console.Write("Enter new user ID: ");
+                userId = System.Console.ReadLine();
+
+                if (string.IsNullOrEmpty(userId)) {
+                    System.Console.WriteLine("User ID cannot be empty.");
+                    return;
+                }
+            }
         }
 
         try {
             System.Console.WriteLine("Initiating OAuth2 flow. A browser window will open for authentication...");
-            System.Console.WriteLine(
-                "Note: If you're using a web client_secret.json, make sure http://localhost is added as an authorized redirect URI in your Google Cloud Console.");
+            System.Console.WriteLine("Important: Make sure you have the following redirect URIs in your Google Cloud Console:");
+            System.Console.WriteLine("- http://localhost");
+            System.Console.WriteLine("- http://127.0.0.1");
+            System.Console.WriteLine("- http://localhost:PORT (where PORT is any port number, e.g., 8080)");
 
             var connected = await manager.ConnectGoogleDriveAsync(providerId, userId);
 
-            if (connected)
+            if (connected) {
                 System.Console.WriteLine("Successfully connected to Google Drive!");
-            else
+                // Update the provider storage with connection state and user ID
+                _providerStorage.SaveProvider(providerId, selectedProvider.Type, selectedProvider.Name, userId);
+            }
+            else {
                 System.Console.WriteLine("Failed to connect to Google Drive.");
+                _providerStorage.UpdateConnectionState(providerId, false);
+            }
         }
         catch (Exception ex) {
             System.Console.WriteLine($"Error connecting to Google Drive: {ex.Message}");
@@ -178,10 +259,14 @@ internal class Program {
 
             System.Console.WriteLine("\nTroubleshooting tips:");
             System.Console.WriteLine("1. Make sure your client_secret.json is valid and contains the correct credentials");
-            System.Console.WriteLine(
-                "2. For web client credentials, add http://localhost:PORT as an authorized redirect URI in Google Cloud Console");
+            System.Console.WriteLine("2. Add these redirect URIs to your Google Cloud Console:");
+            System.Console.WriteLine("   - http://localhost");
+            System.Console.WriteLine("   - http://127.0.0.1");
+            System.Console.WriteLine("   - http://localhost:PORT (where PORT is any port number, e.g., 8080)");
             System.Console.WriteLine("3. For desktop applications, use OAuth client ID of type 'Desktop app' instead of 'Web application'");
             System.Console.WriteLine("4. Check that your application has the necessary API access enabled in Google Cloud Console");
+            System.Console.WriteLine("5. Remember that changes to OAuth settings can take up to a few hours to propagate");
+            System.Console.WriteLine("6. Try deleting the token_store directory to force a new authentication");
         }
     }
 
@@ -212,22 +297,24 @@ internal class Program {
 
         // List available providers
         var providers = _providerStorage.GetAllProviders();
+        var connectedProviders = providers.FindAll(p => p.IsConnected);
 
-        if (providers.Count == 0) {
-            System.Console.WriteLine("No providers registered yet. Please register a provider first.");
+        if (connectedProviders.Count == 0) {
+            System.Console.WriteLine("No connected providers available. Please connect to a provider first.");
             return;
         }
 
-        System.Console.WriteLine("Available providers:");
-        for (var i = 0; i < providers.Count; i++) System.Console.WriteLine($"{i + 1}. {providers[i].Name} ({providers[i].Id})");
+        System.Console.WriteLine("Available connected providers:");
+        for (var i = 0; i < connectedProviders.Count; i++)
+            System.Console.WriteLine($"{i + 1}. {connectedProviders[i].Name} ({connectedProviders[i].Id})");
 
         System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > providers.Count) {
+        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > connectedProviders.Count) {
             System.Console.WriteLine("Invalid selection.");
             return;
         }
 
-        var selectedProvider = providers[providerIndex - 1];
+        var selectedProvider = connectedProviders[providerIndex - 1];
         var providerId = selectedProvider.Id;
 
         try {
@@ -254,22 +341,24 @@ internal class Program {
 
         // List available providers
         var providers = _providerStorage.GetAllProviders();
+        var connectedProviders = providers.FindAll(p => p.IsConnected);
 
-        if (providers.Count == 0) {
-            System.Console.WriteLine("No providers registered yet. Please register a provider first.");
+        if (connectedProviders.Count == 0) {
+            System.Console.WriteLine("No connected providers available. Please connect to a provider first.");
             return;
         }
 
-        System.Console.WriteLine("Available providers:");
-        for (var i = 0; i < providers.Count; i++) System.Console.WriteLine($"{i + 1}. {providers[i].Name} ({providers[i].Id})");
+        System.Console.WriteLine("Available connected providers:");
+        for (var i = 0; i < connectedProviders.Count; i++)
+            System.Console.WriteLine($"{i + 1}. {connectedProviders[i].Name} ({connectedProviders[i].Id})");
 
         System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > providers.Count) {
+        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > connectedProviders.Count) {
             System.Console.WriteLine("Invalid selection.");
             return;
         }
 
-        var selectedProvider = providers[providerIndex - 1];
+        var selectedProvider = connectedProviders[providerIndex - 1];
         var providerId = selectedProvider.Id;
 
         System.Console.Write("Enter file ID to download: ");

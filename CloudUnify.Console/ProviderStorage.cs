@@ -11,15 +11,43 @@ public class ProviderStorage {
         LoadProviders();
     }
 
-    public void SaveProvider(string providerId, string providerType, string name) {
-        _providers[providerId] = new ProviderInfo {
-            Id = providerId,
-            Type = providerType,
-            Name = name,
-            AddedAt = DateTime.UtcNow
-        };
+    public void SaveProvider(string providerId, string providerType, string name, string? userId = null) {
+        if (_providers.TryGetValue(providerId, out var existingProvider)) {
+            // Update existing provider
+            existingProvider.Name = name;
+            existingProvider.Type = providerType;
+            if (userId != null) {
+                existingProvider.UserId = userId;
+                existingProvider.IsConnected = true;
+                existingProvider.LastConnected = DateTime.UtcNow;
+            }
+        }
+        else {
+            // Create new provider
+            _providers[providerId] = new ProviderInfo {
+                Id = providerId,
+                Type = providerType,
+                Name = name,
+                AddedAt = DateTime.UtcNow,
+                UserId = userId,
+                IsConnected = userId != null,
+                LastConnected = userId != null ? DateTime.UtcNow : null
+            };
+        }
 
         SaveProviders();
+    }
+
+    public void UpdateConnectionState(string providerId, bool isConnected, string? userId = null) {
+        if (_providers.TryGetValue(providerId, out var provider)) {
+            provider.IsConnected = isConnected;
+            if (isConnected) {
+                provider.LastConnected = DateTime.UtcNow;
+                if (userId != null) provider.UserId = userId;
+            }
+
+            SaveProviders();
+        }
     }
 
     public ProviderInfo? GetProvider(string providerId) {
@@ -30,18 +58,29 @@ public class ProviderStorage {
         return new List<ProviderInfo>(_providers.Values);
     }
 
+    public List<ProviderInfo> GetConnectedProviders() {
+        var connectedProviders = new List<ProviderInfo>();
+        foreach (var provider in _providers.Values)
+            if (provider.IsConnected && !string.IsNullOrEmpty(provider.UserId))
+                connectedProviders.Add(provider);
+
+        return connectedProviders;
+    }
+
     public void RemoveProvider(string providerId) {
-        if (!_providers.ContainsKey(providerId)) return;
-        _providers.Remove(providerId);
-        SaveProviders();
+        if (_providers.ContainsKey(providerId)) {
+            _providers.Remove(providerId);
+            SaveProviders();
+        }
     }
 
     private void LoadProviders() {
         try {
-            if (!File.Exists(_storagePath)) return;
-            var json = File.ReadAllText(_storagePath);
-            _providers = JsonSerializer.Deserialize<Dictionary<string, ProviderInfo>>(json)
-                         ?? new Dictionary<string, ProviderInfo>();
+            if (File.Exists(_storagePath)) {
+                var json = File.ReadAllText(_storagePath);
+                _providers = JsonSerializer.Deserialize<Dictionary<string, ProviderInfo>>(json)
+                             ?? new Dictionary<string, ProviderInfo>();
+            }
         }
         catch (Exception ex) {
             System.Console.WriteLine($"Error loading providers: {ex.Message}");
@@ -65,4 +104,7 @@ public class ProviderInfo {
     public string Type { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public DateTime AddedAt { get; set; }
+    public bool IsConnected { get; set; }
+    public string? UserId { get; set; }
+    public DateTime? LastConnected { get; set; }
 }
