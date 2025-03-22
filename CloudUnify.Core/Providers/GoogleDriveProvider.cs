@@ -218,12 +218,47 @@ public class GoogleDriveProvider : ICloudProvider {
         return MapToUnifiedCloudFile(copiedFile, newPath);
     }
 
-    public Task<UnifiedCloudFile> RenameFileAsync(string fileId, string newName) {
-        throw new NotImplementedException();
+    public async Task<UnifiedCloudFile> RenameFileAsync(string fileId, string newName)
+    {
+        if (_driveService == null)
+        {
+            throw new InvalidOperationException("Not connected to Google Drive");
+        }
+        
+        var fileMetadata = new Google.Apis.Drive.v3.Data.File
+        {
+            Name = newName
+        };
+        
+        var updateRequest = _driveService.Files.Update(fileMetadata, fileId);
+        updateRequest.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
+        
+        var updatedFile = await updateRequest.ExecuteAsync();
+        var path = await GetPathFromFileIdAsync(fileId);
+        
+        return MapToUnifiedCloudFile(updatedFile, path);
     }
-
-    public Task<CloudStorageInfo> GetStorageInfoAsync() {
-        throw new NotImplementedException();
+    
+    public async Task<CloudStorageInfo> GetStorageInfoAsync()
+    {
+        if (_driveService == null)
+        {
+            throw new InvalidOperationException("Not connected to Google Drive");
+        }
+        
+        var aboutRequest = _driveService.About.Get();
+        aboutRequest.Fields = "storageQuota, user";
+        
+        var about = await aboutRequest.ExecuteAsync();
+        
+        return new CloudStorageInfo
+        {
+            ProviderId = Id,
+            ProviderName = Name,
+            UserEmail = about.User.EmailAddress,
+            TotalSpace = about.StorageQuota.Limit ?? 0,
+            UsedSpace = about.StorageQuota.Usage ?? 0
+        };
     }
 
     // Internal use
