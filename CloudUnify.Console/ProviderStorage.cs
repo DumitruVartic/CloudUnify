@@ -11,11 +11,14 @@ public class ProviderStorage {
         LoadProviders();
     }
 
-    public void SaveProvider(string providerId, string providerType, string name, string? userId = null) {
+    public void SaveProvider(string providerId, string providerType, string name, string? userId = null, string? clientSecretsPath = null) {
         if (_providers.TryGetValue(providerId, out var existingProvider)) {
             // Update existing provider
             existingProvider.Name = name;
             existingProvider.Type = providerType;
+
+            if (clientSecretsPath != null) existingProvider.ClientSecretsPath = clientSecretsPath;
+
             if (userId != null) {
                 existingProvider.UserId = userId;
                 existingProvider.IsConnected = true;
@@ -31,7 +34,8 @@ public class ProviderStorage {
                 AddedAt = DateTime.UtcNow,
                 UserId = userId,
                 IsConnected = userId != null,
-                LastConnected = userId != null ? DateTime.UtcNow : null
+                LastConnected = userId != null ? DateTime.UtcNow : null,
+                ClientSecretsPath = clientSecretsPath
             };
         }
 
@@ -107,4 +111,5 @@ public class ProviderInfo {
     public bool IsConnected { get; set; }
     public string? UserId { get; set; }
     public DateTime? LastConnected { get; set; }
+    public string? ClientSecretsPath { get; set; }
 }

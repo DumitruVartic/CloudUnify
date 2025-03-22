@@ -1,4 +1,5 @@
 using CloudUnify.Core.Authentication;
+using CloudUnify.Core.Extensions;
 using CloudUnify.Core.Providers;
 
 namespace CloudUnify.Core;
@@ -8,7 +9,11 @@ public class CloudUnifyManager {
     private readonly CloudUnify _cloudUnify = new();
     private readonly Dictionary<string, ICloudProvider> _providers = new();
 
-    public string RegisterGoogleDriveProvider(string clientSecretsPath, string applicationName, string dataStorePath, string? providerId = null) {
+    public string RegisterGoogleDriveProvider(
+        string clientSecretsPath,
+        string applicationName,
+        string dataStorePath,
+        string? providerId = null) {
         var authHelper = new GoogleAuthHelper(
             clientSecretsPath,
             applicationName,
@@ -20,11 +25,15 @@ public class CloudUnifyManager {
 
         _authHelpers[providerId] = authHelper;
 
-        // Creating the provider but not initializing it with credentials yet
+        // We'll create the provider but not initialize it with credentials yet
         var provider = new GoogleDriveProvider(providerId, applicationName);
         _providers[providerId] = provider;
 
         return providerId;
+    }
+
+    public bool HasProvider(string providerId) {
+        return _providers.ContainsKey(providerId);
     }
 
     public IReadOnlyList<string> GetProviderIds() {
@@ -51,8 +60,7 @@ public class CloudUnifyManager {
     }
 
     public async Task DisconnectProviderAsync(string providerId, string userId) {
-        if (!_providers.TryGetValue(providerId, out var provider))
-            throw new ArgumentException($"Provider with ID {providerId} not found");
+        if (!_providers.TryGetValue(providerId, out var provider)) throw new ArgumentException($"Provider with ID {providerId} not found");
 
         await provider.DisconnectAsync();
 
@@ -105,5 +113,9 @@ public class CloudUnifyManager {
         return _cloudUnify.CopyFileBetweenProvidersAsync(
             sourceFileId, sourceProviderId,
             destinationPath, destinationProviderId);
+    }
+
+    public Task<List<UnifiedCloudFile>> SearchFilesAsync(string searchTerm, SearchOptions? options = null) {
+        return _cloudUnify.SearchFilesAsync(searchTerm, options);
     }
 }

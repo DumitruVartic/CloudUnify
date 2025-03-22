@@ -18,6 +18,9 @@ internal class Program {
         // Initialize CloudUnifyManager
         var manager = new CloudUnifyManager();
 
+        // Register providers from storage
+        RegisterStoredProviders(manager);
+
         // Auto-connect to previously connected providers
         await AutoConnectProvidersAsync(manager);
 
@@ -44,7 +47,7 @@ internal class Program {
                         RegisterGoogleDriveProvider(manager);
                         break;
                     case "2":
-                        ListRegisteredProviders();
+                        ListRegisteredProviders(manager);
                         break;
                     case "3":
                         await ConnectToGoogleDriveAsync(manager);
@@ -79,6 +82,41 @@ internal class Program {
         }
     }
 
+    private static void RegisterStoredProviders(CloudUnifyManager manager) {
+        System.Console.WriteLine("Registering stored providers...");
+
+        var providers = _providerStorage.GetAllProviders();
+
+        if (providers.Count == 0) {
+            System.Console.WriteLine("No stored providers found.");
+            return;
+        }
+
+        foreach (var provider in providers)
+            try {
+                // Get the client secrets path from the provider metadata
+                var clientSecretsPath = provider.ClientSecretsPath;
+
+                if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
+                    System.Console.WriteLine($"Warning: Client secrets file not found for provider '{provider.Name}'. Skipping.");
+                    continue;
+                }
+
+                // Register the provider with the same ID
+                manager.RegisterGoogleDriveProvider(
+                    clientSecretsPath,
+                    ApplicationName,
+                    TokenStorePath,
+                    provider.Id
+                );
+
+                System.Console.WriteLine($"Registered provider: {provider.Name} (ID: {provider.Id})");
+            }
+            catch (Exception ex) {
+                System.Console.WriteLine($"Error registering provider '{provider.Name}': {ex.Message}");
+            }
+    }
+
     private static async Task AutoConnectProvidersAsync(CloudUnifyManager manager) {
         System.Console.WriteLine("Checking for previously connected providers...");
 
@@ -94,6 +132,11 @@ internal class Program {
         foreach (var provider in connectedProviders) {
             if (string.IsNullOrEmpty(provider.UserId)) {
                 System.Console.WriteLine($"Skipping provider '{provider.Name}' (no user ID stored)");
+                continue;
+            }
+
+            if (!manager.HasProvider(provider.Id)) {
+                System.Console.WriteLine($"Skipping provider '{provider.Name}' (not registered with manager)");
                 continue;
             }
 
@@ -143,8 +186,8 @@ internal class Program {
                 TokenStorePath
             );
 
-            // Save the provider information
-            _providerStorage.SaveProvider(providerId, "GoogleDrive", name);
+            // Save the provider information with the client secrets path
+            _providerStorage.SaveProvider(providerId, "GoogleDrive", name, clientSecretsPath: clientSecretsPath);
 
             System.Console.WriteLine($"Provider registered successfully with ID: {providerId}");
             System.Console.WriteLine("Client secrets loaded successfully.");
@@ -155,7 +198,7 @@ internal class Program {
         }
     }
 
-    private static void ListRegisteredProviders() {
+    private static void ListRegisteredProviders(CloudUnifyManager manager) {
         System.Console.WriteLine("\nRegistered Providers:");
 
         var providers = _providerStorage.GetAllProviders();
@@ -166,10 +209,13 @@ internal class Program {
         }
 
         foreach (var provider in providers) {
+            var isRegisteredWithManager = manager.HasProvider(provider.Id);
+
             System.Console.WriteLine($"- ID: {provider.Id}");
             System.Console.WriteLine($"  Name: {provider.Name}");
             System.Console.WriteLine($"  Type: {provider.Type}");
             System.Console.WriteLine($"  Added: {provider.AddedAt}");
+            System.Console.WriteLine($"  Registered with manager: {(isRegisteredWithManager ? "Yes" : "No")}");
             System.Console.WriteLine($"  Connected: {(provider.IsConnected ? "Yes" : "No")}");
             if (provider.IsConnected && provider.UserId != null) {
                 System.Console.WriteLine($"  User: {provider.UserId}");
@@ -185,25 +231,31 @@ internal class Program {
 
         // List available providers
         var providers = _providerStorage.GetAllProviders();
+        var registeredProviders = new List<ProviderInfo>();
 
-        if (providers.Count == 0) {
+        // Filter to only include providers that are registered with the manager
+        foreach (var provider in providers)
+            if (manager.HasProvider(provider.Id))
+                registeredProviders.Add(provider);
+
+        if (registeredProviders.Count == 0) {
             System.Console.WriteLine("No providers registered yet. Please register a provider first.");
             return;
         }
 
         System.Console.WriteLine("Available providers:");
-        for (var i = 0; i < providers.Count; i++) {
-            var connectionStatus = providers[i].IsConnected ? " (Connected)" : "";
-            System.Console.WriteLine($"{i + 1}. {providers[i].Name}{connectionStatus} ({providers[i].Id})");
+        for (var i = 0; i < registeredProviders.Count; i++) {
+            var connectionStatus = registeredProviders[i].IsConnected ? " (Connected)" : "";
+            System.Console.WriteLine($"{i + 1}. {registeredProviders[i].Name}{connectionStatus} ({registeredProviders[i].Id})");
         }
 
         System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > providers.Count) {
+        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > registeredProviders.Count) {
             System.Console.WriteLine("Invalid selection.");
             return;
         }
 
-        var selectedProvider = providers[providerIndex - 1];
+        var selectedProvider = registeredProviders[providerIndex - 1];
         var providerId = selectedProvider.Id;
 
         // Check if we already have a user ID for this provider
@@ -219,8 +271,9 @@ internal class Program {
             }
         }
         else {
+            // Automatically use the stored user ID
             System.Console.WriteLine($"Using stored user ID: {userId}");
-            System.Console.Write("Use a different user ID? (y/n): ");
+            System.Console.Write("Use a different user ID? (y/n, default: n): ");
             var changeUser = System.Console.ReadLine()?.ToLower();
 
             if (changeUser == "y" || changeUser == "yes") {
@@ -246,7 +299,7 @@ internal class Program {
             if (connected) {
                 System.Console.WriteLine("Successfully connected to Google Drive!");
                 // Update the provider storage with connection state and user ID
-                _providerStorage.SaveProvider(providerId, selectedProvider.Type, selectedProvider.Name, userId);
+                _providerStorage.UpdateConnectionState(providerId, true, userId);
             }
             else {
                 System.Console.WriteLine("Failed to connect to Google Drive.");
@@ -297,7 +350,12 @@ internal class Program {
 
         // List available providers
         var providers = _providerStorage.GetAllProviders();
-        var connectedProviders = providers.FindAll(p => p.IsConnected);
+        var connectedProviders = new List<ProviderInfo>();
+
+        // Filter to only include providers that are connected and registered with the manager
+        foreach (var provider in providers)
+            if (provider.IsConnected && manager.HasProvider(provider.Id))
+                connectedProviders.Add(provider);
 
         if (connectedProviders.Count == 0) {
             System.Console.WriteLine("No connected providers available. Please connect to a provider first.");
@@ -341,7 +399,12 @@ internal class Program {
 
         // List available providers
         var providers = _providerStorage.GetAllProviders();
-        var connectedProviders = providers.FindAll(p => p.IsConnected);
+        var connectedProviders = new List<ProviderInfo>();
+
+        // Filter to only include providers that are connected and registered with the manager
+        foreach (var provider in providers)
+            if (provider.IsConnected && manager.HasProvider(provider.Id))
+                connectedProviders.Add(provider);
 
         if (connectedProviders.Count == 0) {
             System.Console.WriteLine("No connected providers available. Please connect to a provider first.");
@@ -426,17 +489,14 @@ internal class Program {
         var searchTerm = System.Console.ReadLine() ?? "";
 
         try {
-            // Create a CloudUnify instance and register providers from the manager
-            // This is a workaround since we don't have direct access to the CloudUnify instance in the manager
-            var cloudUnify = new Core.CloudUnify();
+            // Use the manager's search method directly
             var options = new SearchOptions {
                 Path = "/",
                 SortBy = "name",
                 SortDirection = SortDirection.Ascending
             };
 
-            // Use extension method to search files
-            var files = await cloudUnify.SearchFilesAsync(searchTerm, options);
+            var files = await manager.SearchFilesAsync(searchTerm, options);
 
             System.Console.WriteLine($"Found {files.Count} files matching '{searchTerm}':");
 
