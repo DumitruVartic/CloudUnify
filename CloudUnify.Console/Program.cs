@@ -19,7 +19,7 @@ internal class Program {
         var manager = new CloudUnifyManager();
 
         // Register providers from storage
-        RegisterStoredProviders(manager);
+        await RegisterStoredProviders(manager);
 
         // Auto-connect to previously connected providers
         await AutoConnectProvidersAsync(manager);
@@ -29,53 +29,45 @@ internal class Program {
             var exit = false;
             while (!exit) {
                 System.Console.WriteLine("\nChoose an option:");
-                System.Console.WriteLine("1. Register Google Drive provider");
+                System.Console.WriteLine("1. Connect to Google Drive");
                 System.Console.WriteLine("2. List registered providers");
-                System.Console.WriteLine("3. Connect to Google Drive");
-                System.Console.WriteLine("4. Register OneDrive provider");
-                System.Console.WriteLine("5. Connect to OneDrive");
-                System.Console.WriteLine("6. List all files");
-                System.Console.WriteLine("7. Upload a test file");
-                System.Console.WriteLine("8. Download a file");
-                System.Console.WriteLine("9. Get storage info");
-                System.Console.WriteLine("10. Search files");
-                System.Console.WriteLine("11. Exit");
-                System.Console.Write("\nEnter your choice (1-11): ");
+                System.Console.WriteLine("3. Connect to OneDrive");
+                System.Console.WriteLine("4. List all files");
+                System.Console.WriteLine("5. Upload a test file");
+                System.Console.WriteLine("6. Download a file");
+                System.Console.WriteLine("7. Get storage info");
+                System.Console.WriteLine("8. Search files");
+                System.Console.WriteLine("9. Exit");
+                System.Console.Write("\nEnter your choice (1-9): ");
 
                 var choice = System.Console.ReadLine();
 
                 switch (choice) {
                     case "1":
-                        RegisterGoogleDriveProvider(manager);
+                        await ConnectToGoogleDriveAsync(manager);
                         break;
                     case "2":
                         ListRegisteredProviders(manager);
                         break;
                     case "3":
-                        await ConnectToGoogleDriveAsync(manager);
-                        break;
-                    case "4":
-                        RegisterOneDriveProvider(manager);
-                        break;
-                    case "5":
                         await ConnectToOneDriveAsync(manager);
                         break;
-                    case "6":
+                    case "4":
                         await ListAllFilesAsync(manager);
                         break;
-                    case "7":
+                    case "5":
                         await UploadTestFileAsync(manager);
                         break;
-                    case "8":
+                    case "6":
                         await DownloadFileAsync(manager);
                         break;
-                    case "9":
+                    case "7":
                         await GetStorageInfoAsync(manager);
                         break;
-                    case "10":
+                    case "8":
                         await SearchFilesAsync(manager);
                         break;
-                    case "11":
+                    case "9":
                         exit = true;
                         break;
                     default:
@@ -90,7 +82,7 @@ internal class Program {
         }
     }
 
-    private static void RegisterStoredProviders(CloudUnifyManager manager) {
+    private static async Task RegisterStoredProviders(CloudUnifyManager manager) {
         System.Console.WriteLine("Registering stored providers...");
 
         var providers = _providerStorage.GetAllProviders();
@@ -110,26 +102,38 @@ internal class Program {
                     continue;
                 }
 
-                // Register the provider with the same ID based on its type
-                if (provider.Type == "GoogleDrive")
-                    manager.RegisterGoogleDriveProvider(
+                // Connect the provider with the same ID based on its type
+                if (provider.Type == "GoogleDrive") {
+                    var (providerId, success) = await manager.ConnectGoogleDriveAsync(
                         clientSecretsPath,
                         ApplicationName,
                         TokenStorePath,
-                        provider.Id
-                    );
-                else if (provider.Type == "OneDrive")
-                    manager.RegisterOneDriveProvider(
-                        clientSecretsPath,
-                        ApplicationName,
-                        TokenStorePath,
+                        provider.UserId ?? string.Empty,
                         provider.Id
                     );
 
-                System.Console.WriteLine($"Registered provider: {provider.Name} (ID: {provider.Id})");
+                    if (success)
+                        System.Console.WriteLine($"Connected provider: {provider.Name} (ID: {providerId})");
+                    else
+                        System.Console.WriteLine($"Failed to connect provider: {provider.Name} (ID: {providerId})");
+                }
+                else if (provider.Type == "OneDrive") {
+                    var (providerId, success) = await manager.ConnectOneDriveAsync(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.UserId ?? string.Empty,
+                        provider.Id
+                    );
+
+                    if (success)
+                        System.Console.WriteLine($"Connected provider: {provider.Name} (ID: {providerId})");
+                    else
+                        System.Console.WriteLine($"Failed to connect provider: {provider.Name} (ID: {providerId})");
+                }
             }
             catch (Exception ex) {
-                System.Console.WriteLine($"Error registering provider '{provider.Name}': {ex.Message}");
+                System.Console.WriteLine($"Error connecting provider '{provider.Name}': {ex.Message}");
             }
     }
 
@@ -159,19 +163,39 @@ internal class Program {
             System.Console.WriteLine($"Reconnecting to {provider.Name} as {provider.UserId}...");
 
             try {
-                bool connected;
+                var clientSecretsPath = provider.ClientSecretsPath;
+                if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
+                    System.Console.WriteLine($"Warning: Client secrets file not found for provider '{provider.Name}'. Skipping.");
+                    continue;
+                }
+
+                bool success;
                 if (provider.Type == "GoogleDrive") {
-                    connected = await manager.ConnectGoogleDriveAsync(provider.Id, provider.UserId);
+                    var (_, connected) = await manager.ConnectGoogleDriveAsync(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.UserId,
+                        provider.Id
+                    );
+                    success = connected;
                 }
                 else if (provider.Type == "OneDrive") {
-                    connected = await manager.ConnectOneDriveAsync(provider.Id, provider.UserId);
+                    var (_, connected) = await manager.ConnectOneDriveAsync(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.UserId,
+                        provider.Id
+                    );
+                    success = connected;
                 }
                 else {
                     System.Console.WriteLine($"Unknown provider type: {provider.Type}");
                     continue;
                 }
 
-                if (connected) {
+                if (success) {
                     System.Console.WriteLine($"Successfully reconnected to {provider.Name}!");
                     _providerStorage.UpdateConnectionState(provider.Id, true);
                 }
@@ -187,76 +211,6 @@ internal class Program {
         }
 
         System.Console.WriteLine("Auto-connection process completed.");
-    }
-
-    private static void RegisterGoogleDriveProvider(CloudUnifyManager manager) {
-        System.Console.WriteLine("\nRegistering Google Drive provider...");
-
-        // Ask for client secrets file path
-        System.Console.Write("Enter path to client_secret.json file: ");
-        var clientSecretsPath = System.Console.ReadLine();
-
-        if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
-            System.Console.WriteLine("Invalid file path or file does not exist.");
-            return;
-        }
-
-        System.Console.Write("Enter a name for this provider (e.g., 'Work Google Drive'): ");
-        var name = System.Console.ReadLine() ?? "Google Drive";
-
-        try {
-            // Register the provider and get the ID
-            var providerId = manager.RegisterGoogleDriveProvider(
-                clientSecretsPath,
-                ApplicationName,
-                TokenStorePath
-            );
-
-            // Save the provider information with the client secrets path
-            _providerStorage.SaveProvider(providerId, "GoogleDrive", name, clientSecretsPath: clientSecretsPath);
-
-            System.Console.WriteLine($"Provider registered successfully with ID: {providerId}");
-            System.Console.WriteLine("Client secrets loaded successfully.");
-        }
-        catch (Exception ex) {
-            System.Console.WriteLine($"Error registering provider: {ex.Message}");
-            if (ex.InnerException != null) System.Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
-        }
-    }
-
-    private static void RegisterOneDriveProvider(CloudUnifyManager manager) {
-        System.Console.WriteLine("\nRegistering OneDrive provider...");
-
-        // Ask for client secrets file path
-        System.Console.Write("Enter path to client_secret.json file: ");
-        var clientSecretsPath = System.Console.ReadLine();
-
-        if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
-            System.Console.WriteLine("Invalid file path or file does not exist.");
-            return;
-        }
-
-        System.Console.Write("Enter a name for this provider (e.g., 'Personal OneDrive'): ");
-        var name = System.Console.ReadLine() ?? "OneDrive";
-
-        try {
-            // Register the provider and get the ID
-            var providerId = manager.RegisterOneDriveProvider(
-                clientSecretsPath,
-                ApplicationName,
-                TokenStorePath
-            );
-
-            // Save the provider information with the client secrets path
-            _providerStorage.SaveProvider(providerId, "OneDrive", name, clientSecretsPath: clientSecretsPath);
-
-            System.Console.WriteLine($"Provider registered successfully with ID: {providerId}");
-            System.Console.WriteLine("Client secrets loaded successfully.");
-        }
-        catch (Exception ex) {
-            System.Console.WriteLine($"Error registering provider: {ex.Message}");
-            if (ex.InnerException != null) System.Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
-        }
     }
 
     private static void ListRegisteredProviders(CloudUnifyManager manager) {
@@ -290,62 +244,24 @@ internal class Program {
     private static async Task ConnectToGoogleDriveAsync(CloudUnifyManager manager) {
         System.Console.WriteLine("\nConnecting to Google Drive...");
 
-        // List available providers
-        var providers = _providerStorage.GetAllProviders();
-        var registeredProviders = new List<ProviderInfo>();
+        // Ask for client secrets file path
+        System.Console.Write("Enter path to client_secret.json file: ");
+        var clientSecretsPath = System.Console.ReadLine();
 
-        // Filter to only include providers that are registered with the manager
-        foreach (var provider in providers)
-            if (manager.HasProvider(provider.Id))
-                registeredProviders.Add(provider);
-
-        if (registeredProviders.Count == 0) {
-            System.Console.WriteLine("No providers registered yet. Please register a provider first.");
+        if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
+            System.Console.WriteLine("Invalid file path or file does not exist.");
             return;
         }
 
-        System.Console.WriteLine("Available providers:");
-        for (var i = 0; i < registeredProviders.Count; i++) {
-            var connectionStatus = registeredProviders[i].IsConnected ? " (Connected)" : "";
-            System.Console.WriteLine($"{i + 1}. {registeredProviders[i].Name}{connectionStatus} ({registeredProviders[i].Id})");
-        }
+        System.Console.Write("Enter a name for this provider (e.g., 'Work Google Drive'): ");
+        var name = System.Console.ReadLine() ?? "Google Drive";
 
-        System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > registeredProviders.Count) {
-            System.Console.WriteLine("Invalid selection.");
-            return;
-        }
-
-        var selectedProvider = registeredProviders[providerIndex - 1];
-        var providerId = selectedProvider.Id;
-
-        // Check if we already have a user ID for this provider
-        var userId = selectedProvider.UserId;
+        System.Console.Write("Enter user ID (e.g., your email): ");
+        var userId = System.Console.ReadLine();
 
         if (string.IsNullOrEmpty(userId)) {
-            System.Console.Write("Enter user ID (e.g., your email): ");
-            userId = System.Console.ReadLine();
-
-            if (string.IsNullOrEmpty(userId)) {
-                System.Console.WriteLine("User ID cannot be empty.");
-                return;
-            }
-        }
-        else {
-            // Automatically use the stored user ID
-            System.Console.WriteLine($"Using stored user ID: {userId}");
-            System.Console.Write("Use a different user ID? (y/n, default: n): ");
-            var changeUser = System.Console.ReadLine()?.ToLower();
-
-            if (changeUser == "y" || changeUser == "yes") {
-                System.Console.Write("Enter new user ID: ");
-                userId = System.Console.ReadLine();
-
-                if (string.IsNullOrEmpty(userId)) {
-                    System.Console.WriteLine("User ID cannot be empty.");
-                    return;
-                }
-            }
+            System.Console.WriteLine("User ID cannot be empty.");
+            return;
         }
 
         try {
@@ -355,16 +271,20 @@ internal class Program {
             System.Console.WriteLine("- http://127.0.0.1");
             System.Console.WriteLine("- http://localhost:PORT (where PORT is any port number, e.g., 8080)");
 
-            var connected = await manager.ConnectGoogleDriveAsync(providerId, userId);
+            var (providerId, success) = await manager.ConnectGoogleDriveAsync(
+                clientSecretsPath,
+                ApplicationName,
+                TokenStorePath,
+                userId
+            );
 
-            if (connected) {
+            if (success) {
                 System.Console.WriteLine("Successfully connected to Google Drive!");
-                // Update the provider storage with connection state and user ID
-                _providerStorage.UpdateConnectionState(providerId, true, userId);
+                // Save the provider information
+                _providerStorage.SaveProvider(providerId, "GoogleDrive", name, userId, clientSecretsPath);
             }
             else {
                 System.Console.WriteLine("Failed to connect to Google Drive.");
-                _providerStorage.UpdateConnectionState(providerId, false);
             }
         }
         catch (Exception ex) {
@@ -387,62 +307,24 @@ internal class Program {
     private static async Task ConnectToOneDriveAsync(CloudUnifyManager manager) {
         System.Console.WriteLine("\nConnecting to OneDrive...");
 
-        // List available providers
-        var providers = _providerStorage.GetAllProviders();
-        var registeredProviders = new List<ProviderInfo>();
+        // Ask for client secrets file path
+        System.Console.Write("Enter path to client_secret.json file: ");
+        var clientSecretsPath = System.Console.ReadLine();
 
-        // Filter to only include OneDrive providers that are registered with the manager
-        foreach (var provider in providers)
-            if (manager.HasProvider(provider.Id) && provider.Type == "OneDrive")
-                registeredProviders.Add(provider);
-
-        if (registeredProviders.Count == 0) {
-            System.Console.WriteLine("No OneDrive providers registered yet. Please register a provider first.");
+        if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
+            System.Console.WriteLine("Invalid file path or file does not exist.");
             return;
         }
 
-        System.Console.WriteLine("Available OneDrive providers:");
-        for (var i = 0; i < registeredProviders.Count; i++) {
-            var connectionStatus = registeredProviders[i].IsConnected ? " (Connected)" : "";
-            System.Console.WriteLine($"{i + 1}. {registeredProviders[i].Name}{connectionStatus} ({registeredProviders[i].Id})");
-        }
+        System.Console.Write("Enter a name for this provider (e.g., 'Personal OneDrive'): ");
+        var name = System.Console.ReadLine() ?? "OneDrive";
 
-        System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > registeredProviders.Count) {
-            System.Console.WriteLine("Invalid selection.");
-            return;
-        }
-
-        var selectedProvider = registeredProviders[providerIndex - 1];
-        var providerId = selectedProvider.Id;
-
-        // Check if we already have a user ID for this provider
-        var userId = selectedProvider.UserId;
+        System.Console.Write("Enter user ID (e.g., your email): ");
+        var userId = System.Console.ReadLine();
 
         if (string.IsNullOrEmpty(userId)) {
-            System.Console.Write("Enter user ID (e.g., your email): ");
-            userId = System.Console.ReadLine();
-
-            if (string.IsNullOrEmpty(userId)) {
-                System.Console.WriteLine("User ID cannot be empty.");
-                return;
-            }
-        }
-        else {
-            // Automatically use the stored user ID
-            System.Console.WriteLine($"Using stored user ID: {userId}");
-            System.Console.Write("Use a different user ID? (y/n, default: n): ");
-            var changeUser = System.Console.ReadLine()?.ToLower();
-
-            if (changeUser == "y" || changeUser == "yes") {
-                System.Console.Write("Enter new user ID: ");
-                userId = System.Console.ReadLine();
-
-                if (string.IsNullOrEmpty(userId)) {
-                    System.Console.WriteLine("User ID cannot be empty.");
-                    return;
-                }
-            }
+            System.Console.WriteLine("User ID cannot be empty.");
+            return;
         }
 
         try {
@@ -452,16 +334,20 @@ internal class Program {
             System.Console.WriteLine("- http://127.0.0.1");
             System.Console.WriteLine("- http://localhost:PORT (where PORT is any port number, e.g., 8080)");
 
-            var connected = await manager.ConnectOneDriveAsync(providerId, userId);
+            var (providerId, success) = await manager.ConnectOneDriveAsync(
+                clientSecretsPath,
+                ApplicationName,
+                TokenStorePath,
+                userId
+            );
 
-            if (connected) {
+            if (success) {
                 System.Console.WriteLine("Successfully connected to OneDrive!");
-                // Update the provider storage with connection state and user ID
-                _providerStorage.UpdateConnectionState(providerId, true, userId);
+                // Save the provider information
+                _providerStorage.SaveProvider(providerId, "OneDrive", name, userId, clientSecretsPath);
             }
             else {
                 System.Console.WriteLine("Failed to connect to OneDrive.");
-                _providerStorage.UpdateConnectionState(providerId, false);
             }
         }
         catch (Exception ex) {
