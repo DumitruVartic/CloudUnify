@@ -30,7 +30,7 @@ public class OneDriveAuthProvider : IAuthProvider {
             // Load client secrets
             string clientId;
             string clientSecret;
-            string redirectUri;
+            string redirectUri = "http://localhost:8080"; // Use a consistent redirect URI
             string tokenFilePath = Path.Combine(_dataStorePath, $"onedrive_token_{userId}.json");
 
             using (var stream = new FileStream(_clientSecretsPath, FileMode.Open, FileAccess.Read)) {
@@ -41,18 +41,10 @@ public class OneDriveAuthProvider : IAuthProvider {
                 if (secrets.TryGetProperty("web", out var web)) {
                     clientId = web.GetProperty("client_id").GetString();
                     clientSecret = web.GetProperty("client_secret").GetString();
-
-                    // Get the first redirect URI
-                    var redirectUris = web.GetProperty("redirect_uris").EnumerateArray();
-                    redirectUri = redirectUris.First().GetString();
                 }
                 else if (secrets.TryGetProperty("installed", out var installed)) {
                     clientId = installed.GetProperty("client_id").GetString();
                     clientSecret = installed.GetProperty("client_secret").GetString();
-
-                    // Get the first redirect URI
-                    var redirectUris = installed.GetProperty("redirect_uris").EnumerateArray();
-                    redirectUri = redirectUris.First().GetString();
                 }
                 else {
                     throw new InvalidOperationException("Invalid client secrets format");
@@ -87,7 +79,7 @@ public class OneDriveAuthProvider : IAuthProvider {
             Console.WriteLine("Please log in and grant the requested permissions.");
 
             // Start the local server and wait for the auth code
-            var authCode = await codeReceiver.ReceiveCodeAsync(redirectUri, CancellationToken.None);
+            var authCode = await codeReceiver.ReceiveCodeAsync(redirectUri, clientId, CancellationToken.None);
 
             if (string.IsNullOrEmpty(authCode)) throw new InvalidOperationException("No authorization code received");
 
@@ -97,8 +89,7 @@ public class OneDriveAuthProvider : IAuthProvider {
                 new KeyValuePair<string, string>("client_secret", clientSecret),
                 new KeyValuePair<string, string>("code", authCode),
                 new KeyValuePair<string, string>("redirect_uri", redirectUri),
-                new KeyValuePair<string, string>("grant_type", "authorization_code"),
-                new KeyValuePair<string, string>("scope", "Files.ReadWrite Files.ReadWrite.All Files.Read Files.Read.All offline_access User.Read")
+                new KeyValuePair<string, string>("grant_type", "authorization_code")
             });
 
             Console.WriteLine("Exchanging authorization code for access token...");
@@ -177,28 +168,28 @@ public class OneDriveAuthProvider : IAuthProvider {
         private TaskCompletionSource<string>? _codeReceived;
         private readonly object _lock = new();
 
-        public async Task<string> ReceiveCodeAsync(string redirectUri, CancellationToken cancellationToken) {
+        public async Task<string> ReceiveCodeAsync(string redirectUri, string clientId, CancellationToken cancellationToken) {
             _codeReceived = new TaskCompletionSource<string>();
 
-            // Parse the redirect URI to get the port
-            var uri = new Uri(redirectUri);
-            var port = uri.Port;
+            Console.WriteLine($"Starting local server on {redirectUri}");
 
             // Start the HTTP listener
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://localhost:{port}/");
+            _listener.Prefixes.Add(redirectUri + "/");
             _listener.Start();
 
             // Start listening for requests in the background
             _ = ListenForRequestsAsync();
 
-            // Open the browser
+            // Open the browser with the exact redirect URI
             var authUrl = $"https://login.microsoftonline.com/common/oauth2/v2.0/authorize" +
-                         $"?client_id={Uri.EscapeDataString("526fa3d0-5a52-4a99-9c74-58dbbba1ca57")}" +
+                         $"?client_id={Uri.EscapeDataString(clientId)}" +
                          $"&response_type=code" +
                          $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                          $"&scope={Uri.EscapeDataString("Files.ReadWrite Files.ReadWrite.All Files.Read Files.Read.All offline_access User.Read")}" +
                          $"&response_mode=query";
+
+            Console.WriteLine($"Opening browser with URL: {authUrl}");
 
             try {
                 Process.Start(new ProcessStartInfo {
@@ -223,14 +214,30 @@ public class OneDriveAuthProvider : IAuthProvider {
                     var request = context.Request;
                     var response = context.Response;
 
+                    Console.WriteLine($"Received request: {request.Url}");
+                    Console.WriteLine($"Query string: {request.Url?.Query}");
+
                     // Check if this is the OAuth callback
                     if (request.Url?.Query.StartsWith("?code=") == true) {
                         var code = request.Url.Query.Substring(6); // Remove "?code="
+                        Console.WriteLine($"Received authorization code: {code}");
                         _codeReceived?.TrySetResult(code);
 
                         // Send a success response to the browser
                         var successHtml = "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to the application.</p></body></html>";
                         var buffer = System.Text.Encoding.UTF8.GetBytes(successHtml);
+                        response.ContentType = "text/html";
+                        response.ContentLength64 = buffer.Length;
+                        await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
+                    }
+                    else if (request.Url?.Query.StartsWith("?error=") == true) {
+                        var error = request.Url.Query;
+                        Console.WriteLine($"Received error response: {error}");
+                        _codeReceived?.TrySetException(new Exception($"Authentication failed: {error}"));
+
+                        // Send an error response to the browser
+                        var errorHtml = "<html><body><h1>Authentication Failed</h1><p>Please check the console for error details and try again.</p></body></html>";
+                        var buffer = System.Text.Encoding.UTF8.GetBytes(errorHtml);
                         response.ContentType = "text/html";
                         response.ContentLength64 = buffer.Length;
                         await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
@@ -243,6 +250,8 @@ public class OneDriveAuthProvider : IAuthProvider {
                 }
             }
             catch (Exception ex) {
+                Console.WriteLine($"Error in listener: {ex.Message}");
+                if (ex.InnerException != null) Console.WriteLine($"Inner error: {ex.InnerException.Message}");
                 _codeReceived?.TrySetException(ex);
             }
             finally {
