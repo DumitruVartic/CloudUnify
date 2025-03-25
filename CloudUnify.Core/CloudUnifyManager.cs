@@ -32,6 +32,29 @@ public class CloudUnifyManager {
         return providerId;
     }
 
+    public string RegisterOneDriveProvider(
+        string clientSecretsPath,
+        string applicationName,
+        string dataStorePath,
+        string? providerId = null) {
+        var authHelper = new OneDriveAuthProvider(
+            clientSecretsPath,
+            applicationName,
+            dataStorePath
+        );
+
+        // Generate a new provider ID if not provided
+        providerId ??= Guid.NewGuid().ToString();
+
+        _authHelpers[providerId] = authHelper;
+
+        // We'll create the provider but not initialize it with credentials yet
+        var provider = new OneDriveProvider(providerId, applicationName);
+        _providers[providerId] = provider;
+
+        return providerId;
+    }
+
     public bool HasProvider(string providerId) {
         return _providers.ContainsKey(providerId);
     }
@@ -41,7 +64,8 @@ public class CloudUnifyManager {
     }
 
     public async Task<bool> ConnectGoogleDriveAsync(string providerId, string userId) {
-        if (!_authHelpers.TryGetValue(providerId, out var authHelper) ||
+        if (!_authHelpers.TryGetValue(providerId, out var authHelperObj) ||
+            authHelperObj is not GoogleAuthProvider authHelper ||
             !_providers.TryGetValue(providerId, out var provider))
             throw new ArgumentException($"Provider with ID {providerId} not found");
 
@@ -49,12 +73,38 @@ public class CloudUnifyManager {
             var accessToken = await authHelper.AuthenticateAsync(userId);
             var connected = await provider.ConnectAsync(accessToken);
 
-            if (!connected) return false;
-            _cloudUnify.RegisterProvider(provider);
-            return true;
+            if (connected) {
+                _cloudUnify.RegisterProvider(provider);
+                return true;
+            }
+
+            return false;
         }
         catch (Exception ex) {
             Console.WriteLine($"Error connecting to Google Drive: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> ConnectOneDriveAsync(string providerId, string userId) {
+        if (!_authHelpers.TryGetValue(providerId, out var authHelperObj) ||
+            authHelperObj is not OneDriveAuthProvider authHelper ||
+            !_providers.TryGetValue(providerId, out var provider))
+            throw new ArgumentException($"Provider with ID {providerId} not found");
+
+        try {
+            var accessToken = await authHelper.AuthenticateAsync(userId);
+            var connected = await provider.ConnectAsync(accessToken);
+
+            if (connected) {
+                _cloudUnify.RegisterProvider(provider);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error connecting to OneDrive: {ex.Message}");
             return false;
         }
     }
@@ -64,7 +114,11 @@ public class CloudUnifyManager {
 
         await provider.DisconnectAsync();
 
-        if (_authHelpers.TryGetValue(providerId, out var authHelper)) await authHelper.RevokeTokenAsync(userId);
+        if (_authHelpers.TryGetValue(providerId, out var authHelperObj)) {
+            if (authHelperObj is GoogleAuthProvider GoogleAuthProvider)
+                await GoogleAuthProvider.RevokeTokenAsync(userId);
+            else if (authHelperObj is OneDriveAuthProvider oneDriveAuthHelper) await oneDriveAuthHelper.RevokeTokenAsync(userId);
+        }
     }
 
     // Expose CloudUnify methods
@@ -115,6 +169,7 @@ public class CloudUnifyManager {
             destinationPath, destinationProviderId);
     }
 
+    // Add search functionality directly to the manager
     public Task<List<UnifiedCloudFile>> SearchFilesAsync(string searchTerm, SearchOptions? options = null) {
         return _cloudUnify.SearchFilesAsync(searchTerm, options);
     }

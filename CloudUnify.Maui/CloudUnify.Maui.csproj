@@ -68,7 +68,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\CloudUnify.Core\CloudUnify.Core.csproj" />
+        <ProjectReference Include="..\CloudUnify.Core\CloudUnify.Core.csproj"/>
     </ItemGroup>
 
 </Project>
