@@ -5,7 +5,7 @@ using CloudUnify.Core.Providers;
 namespace CloudUnify.Core;
 
 public class CloudUnifyManager {
-    private readonly Dictionary<string, GoogleAuthHelper> _authHelpers = new();
+    private readonly Dictionary<string, IAuthProvider> _authHelpers = new();
     private readonly CloudUnify _cloudUnify = new();
     private readonly Dictionary<string, ICloudProvider> _providers = new();
 
@@ -14,7 +14,7 @@ public class CloudUnifyManager {
         string applicationName,
         string dataStorePath,
         string? providerId = null) {
-        var authHelper = new GoogleAuthHelper(
+        var authHelper = new GoogleAuthProvider(
             clientSecretsPath,
             applicationName,
             dataStorePath
