@@ -32,13 +32,15 @@ internal class Program {
                 System.Console.WriteLine("1. Register Google Drive provider");
                 System.Console.WriteLine("2. List registered providers");
                 System.Console.WriteLine("3. Connect to Google Drive");
-                System.Console.WriteLine("4. List all files");
-                System.Console.WriteLine("5. Upload a test file");
-                System.Console.WriteLine("6. Download a file");
-                System.Console.WriteLine("7. Get storage info");
-                System.Console.WriteLine("8. Search files");
-                System.Console.WriteLine("9. Exit");
-                System.Console.Write("\nEnter your choice (1-9): ");
+                System.Console.WriteLine("4. Register OneDrive provider");
+                System.Console.WriteLine("5. Connect to OneDrive");
+                System.Console.WriteLine("6. List all files");
+                System.Console.WriteLine("7. Upload a test file");
+                System.Console.WriteLine("8. Download a file");
+                System.Console.WriteLine("9. Get storage info");
+                System.Console.WriteLine("10. Search files");
+                System.Console.WriteLine("11. Exit");
+                System.Console.Write("\nEnter your choice (1-11): ");
 
                 var choice = System.Console.ReadLine();
 
@@ -53,21 +55,27 @@ internal class Program {
                         await ConnectToGoogleDriveAsync(manager);
                         break;
                     case "4":
-                        await ListAllFilesAsync(manager);
+                        RegisterOneDriveProvider(manager);
                         break;
                     case "5":
-                        await UploadTestFileAsync(manager);
+                        await ConnectToOneDriveAsync(manager);
                         break;
                     case "6":
-                        await DownloadFileAsync(manager);
+                        await ListAllFilesAsync(manager);
                         break;
                     case "7":
-                        await GetStorageInfoAsync(manager);
+                        await UploadTestFileAsync(manager);
                         break;
                     case "8":
-                        await SearchFilesAsync(manager);
+                        await DownloadFileAsync(manager);
                         break;
                     case "9":
+                        await GetStorageInfoAsync(manager);
+                        break;
+                    case "10":
+                        await SearchFilesAsync(manager);
+                        break;
+                    case "11":
                         exit = true;
                         break;
                     default:
@@ -102,13 +110,23 @@ internal class Program {
                     continue;
                 }
 
-                // Register the provider with the same ID
-                manager.RegisterGoogleDriveProvider(
-                    clientSecretsPath,
-                    ApplicationName,
-                    TokenStorePath,
-                    provider.Id
-                );
+                // Register the provider with the same ID based on its type
+                if (provider.Type == "GoogleDrive") {
+                    manager.RegisterGoogleDriveProvider(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.Id
+                    );
+                }
+                else if (provider.Type == "OneDrive") {
+                    manager.RegisterOneDriveProvider(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.Id
+                    );
+                }
 
                 System.Console.WriteLine($"Registered provider: {provider.Name} (ID: {provider.Id})");
             }
@@ -143,7 +161,17 @@ internal class Program {
             System.Console.WriteLine($"Reconnecting to {provider.Name} as {provider.UserId}...");
 
             try {
-                var connected = await manager.ConnectGoogleDriveAsync(provider.Id, provider.UserId);
+                bool connected;
+                if (provider.Type == "GoogleDrive") {
+                    connected = await manager.ConnectGoogleDriveAsync(provider.Id, provider.UserId);
+                }
+                else if (provider.Type == "OneDrive") {
+                    connected = await manager.ConnectOneDriveAsync(provider.Id, provider.UserId);
+                }
+                else {
+                    System.Console.WriteLine($"Unknown provider type: {provider.Type}");
+                    continue;
+                }
 
                 if (connected) {
                     System.Console.WriteLine($"Successfully reconnected to {provider.Name}!");
@@ -188,6 +216,41 @@ internal class Program {
 
             // Save the provider information with the client secrets path
             _providerStorage.SaveProvider(providerId, "GoogleDrive", name, clientSecretsPath: clientSecretsPath);
+
+            System.Console.WriteLine($"Provider registered successfully with ID: {providerId}");
+            System.Console.WriteLine("Client secrets loaded successfully.");
+        }
+        catch (Exception ex) {
+            System.Console.WriteLine($"Error registering provider: {ex.Message}");
+            if (ex.InnerException != null) System.Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
+        }
+    }
+
+    private static void RegisterOneDriveProvider(CloudUnifyManager manager) {
+        System.Console.WriteLine("\nRegistering OneDrive provider...");
+
+        // Ask for client secrets file path
+        System.Console.Write("Enter path to client_secret.json file: ");
+        var clientSecretsPath = System.Console.ReadLine();
+
+        if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
+            System.Console.WriteLine("Invalid file path or file does not exist.");
+            return;
+        }
+
+        System.Console.Write("Enter a name for this provider (e.g., 'Personal OneDrive'): ");
+        var name = System.Console.ReadLine() ?? "OneDrive";
+
+        try {
+            // Register the provider and get the ID
+            var providerId = manager.RegisterOneDriveProvider(
+                clientSecretsPath,
+                ApplicationName,
+                TokenStorePath
+            );
+
+            // Save the provider information with the client secrets path
+            _providerStorage.SaveProvider(providerId, "OneDrive", name, clientSecretsPath: clientSecretsPath);
 
             System.Console.WriteLine($"Provider registered successfully with ID: {providerId}");
             System.Console.WriteLine("Client secrets loaded successfully.");
@@ -320,6 +383,102 @@ internal class Program {
             System.Console.WriteLine("4. Check that your application has the necessary API access enabled in Google Cloud Console");
             System.Console.WriteLine("5. Remember that changes to OAuth settings can take up to a few hours to propagate");
             System.Console.WriteLine("6. Try deleting the token_store directory to force a new authentication");
+        }
+    }
+
+    private static async Task ConnectToOneDriveAsync(CloudUnifyManager manager) {
+        System.Console.WriteLine("\nConnecting to OneDrive...");
+
+        // List available providers
+        var providers = _providerStorage.GetAllProviders();
+        var registeredProviders = new List<ProviderInfo>();
+
+        // Filter to only include OneDrive providers that are registered with the manager
+        foreach (var provider in providers)
+            if (manager.HasProvider(provider.Id) && provider.Type == "OneDrive")
+                registeredProviders.Add(provider);
+
+        if (registeredProviders.Count == 0) {
+            System.Console.WriteLine("No OneDrive providers registered yet. Please register a provider first.");
+            return;
+        }
+
+        System.Console.WriteLine("Available OneDrive providers:");
+        for (var i = 0; i < registeredProviders.Count; i++) {
+            var connectionStatus = registeredProviders[i].IsConnected ? " (Connected)" : "";
+            System.Console.WriteLine($"{i + 1}. {registeredProviders[i].Name}{connectionStatus} ({registeredProviders[i].Id})");
+        }
+
+        System.Console.Write("Select a provider (number): ");
+        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > registeredProviders.Count) {
+            System.Console.WriteLine("Invalid selection.");
+            return;
+        }
+
+        var selectedProvider = registeredProviders[providerIndex - 1];
+        var providerId = selectedProvider.Id;
+
+        // Check if we already have a user ID for this provider
+        var userId = selectedProvider.UserId;
+
+        if (string.IsNullOrEmpty(userId)) {
+            System.Console.Write("Enter user ID (e.g., your email): ");
+            userId = System.Console.ReadLine();
+
+            if (string.IsNullOrEmpty(userId)) {
+                System.Console.WriteLine("User ID cannot be empty.");
+                return;
+            }
+        }
+        else {
+            // Automatically use the stored user ID
+            System.Console.WriteLine($"Using stored user ID: {userId}");
+            System.Console.Write("Use a different user ID? (y/n, default: n): ");
+            var changeUser = System.Console.ReadLine()?.ToLower();
+
+            if (changeUser == "y" || changeUser == "yes") {
+                System.Console.Write("Enter new user ID: ");
+                userId = System.Console.ReadLine();
+
+                if (string.IsNullOrEmpty(userId)) {
+                    System.Console.WriteLine("User ID cannot be empty.");
+                    return;
+                }
+            }
+        }
+
+        try {
+            System.Console.WriteLine("Initiating OAuth2 flow. A browser window will open for authentication...");
+            System.Console.WriteLine("Important: Make sure you have the following redirect URIs in your Microsoft Azure Portal:");
+            System.Console.WriteLine("- http://localhost");
+            System.Console.WriteLine("- http://127.0.0.1");
+            System.Console.WriteLine("- http://localhost:PORT (where PORT is any port number, e.g., 8080)");
+
+            var connected = await manager.ConnectOneDriveAsync(providerId, userId);
+
+            if (connected) {
+                System.Console.WriteLine("Successfully connected to OneDrive!");
+                // Update the provider storage with connection state and user ID
+                _providerStorage.UpdateConnectionState(providerId, true, userId);
+            }
+            else {
+                System.Console.WriteLine("Failed to connect to OneDrive.");
+                _providerStorage.UpdateConnectionState(providerId, false);
+            }
+        }
+        catch (Exception ex) {
+            System.Console.WriteLine($"Error connecting to OneDrive: {ex.Message}");
+            if (ex.InnerException != null) System.Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
+
+            System.Console.WriteLine("\nTroubleshooting tips:");
+            System.Console.WriteLine("1. Make sure your client_secret.json is valid and contains the correct credentials");
+            System.Console.WriteLine("2. Add these redirect URIs to your Microsoft Azure Portal:");
+            System.Console.WriteLine("   - http://localhost");
+            System.Console.WriteLine("   - http://127.0.0.1");
+            System.Console.WriteLine("   - http://localhost:PORT (where PORT is any port number, e.g., 8080)");
+            System.Console.WriteLine("3. Check that your application has the necessary API permissions enabled in Azure Portal");
+            System.Console.WriteLine("4. Remember that changes to OAuth settings can take up to a few hours to propagate");
+            System.Console.WriteLine("5. Try deleting the token_store directory to force a new authentication");
         }
     }
 
