@@ -1,7 +1,7 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
-using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 
 namespace CloudUnify.Core.Authentication;
 
@@ -18,9 +18,7 @@ public class OneDriveAuthProvider : IAuthProvider {
         _httpClient = new HttpClient();
 
         // Create token store directory if it doesn't exist
-        if (!Directory.Exists(_dataStorePath)) {
-            Directory.CreateDirectory(_dataStorePath);
-        }
+        if (!Directory.Exists(_dataStorePath)) Directory.CreateDirectory(_dataStorePath);
     }
 
     public async Task<string> AuthenticateAsync(string userId) {
@@ -30,8 +28,8 @@ public class OneDriveAuthProvider : IAuthProvider {
             // Load client secrets
             string clientId;
             string clientSecret;
-            string redirectUri = "http://localhost:8080"; // Use a consistent redirect URI
-            string tokenFilePath = Path.Combine(_dataStorePath, $"onedrive_token_{userId}.json");
+            var redirectUri = "http://localhost:8080"; // Use a consistent redirect URI
+            var tokenFilePath = Path.Combine(_dataStorePath, $"onedrive_token_{userId}.json");
 
             using (var stream = new FileStream(_clientSecretsPath, FileMode.Open, FileAccess.Read)) {
                 using var reader = new StreamReader(stream);
@@ -98,8 +96,7 @@ public class OneDriveAuthProvider : IAuthProvider {
                 tokenRequestContent);
 
             var responseContent = await tokenResponse.Content.ReadAsStringAsync();
-            if (!tokenResponse.IsSuccessStatusCode)
-            {
+            if (!tokenResponse.IsSuccessStatusCode) {
                 Console.WriteLine($"Token exchange failed. Status code: {tokenResponse.StatusCode}");
                 Console.WriteLine($"Response content: {responseContent}");
                 tokenResponse.EnsureSuccessStatusCode(); // This will throw with the actual error
@@ -109,9 +106,7 @@ public class OneDriveAuthProvider : IAuthProvider {
 
             // Ensure directory exists before saving
             var tokenDirectory = Path.GetDirectoryName(tokenFilePath);
-            if (!string.IsNullOrEmpty(tokenDirectory) && !Directory.Exists(tokenDirectory)) {
-                Directory.CreateDirectory(tokenDirectory);
-            }
+            if (!string.IsNullOrEmpty(tokenDirectory) && !Directory.Exists(tokenDirectory)) Directory.CreateDirectory(tokenDirectory);
 
             // Save the token data for future use
             await File.WriteAllTextAsync(tokenFilePath, responseContent);
@@ -164,9 +159,9 @@ public class OneDriveAuthProvider : IAuthProvider {
 
     // Implementation of a local server code receiver
     private class LocalServerCodeReceiver {
-        private HttpListener? _listener;
-        private TaskCompletionSource<string>? _codeReceived;
         private readonly object _lock = new();
+        private TaskCompletionSource<string>? _codeReceived;
+        private HttpListener? _listener;
 
         public async Task<string> ReceiveCodeAsync(string redirectUri, string clientId, CancellationToken cancellationToken) {
             _codeReceived = new TaskCompletionSource<string>();
@@ -183,11 +178,11 @@ public class OneDriveAuthProvider : IAuthProvider {
 
             // Open the browser with the exact redirect URI
             var authUrl = $"https://login.microsoftonline.com/common/oauth2/v2.0/authorize" +
-                         $"?client_id={Uri.EscapeDataString(clientId)}" +
-                         $"&response_type=code" +
-                         $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                         $"&scope={Uri.EscapeDataString("Files.ReadWrite Files.ReadWrite.All Files.Read Files.Read.All offline_access User.Read")}" +
-                         $"&response_mode=query";
+                          $"?client_id={Uri.EscapeDataString(clientId)}" +
+                          $"&response_type=code" +
+                          $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                          $"&scope={Uri.EscapeDataString("Files.ReadWrite Files.ReadWrite.All Files.Read Files.Read.All offline_access User.Read")}" +
+                          $"&response_mode=query";
 
             Console.WriteLine($"Opening browser with URL: {authUrl}");
 
@@ -224,8 +219,9 @@ public class OneDriveAuthProvider : IAuthProvider {
                         _codeReceived?.TrySetResult(code);
 
                         // Send a success response to the browser
-                        var successHtml = "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to the application.</p></body></html>";
-                        var buffer = System.Text.Encoding.UTF8.GetBytes(successHtml);
+                        var successHtml =
+                            "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to the application.</p></body></html>";
+                        var buffer = Encoding.UTF8.GetBytes(successHtml);
                         response.ContentType = "text/html";
                         response.ContentLength64 = buffer.Length;
                         await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
@@ -236,8 +232,9 @@ public class OneDriveAuthProvider : IAuthProvider {
                         _codeReceived?.TrySetException(new Exception($"Authentication failed: {error}"));
 
                         // Send an error response to the browser
-                        var errorHtml = "<html><body><h1>Authentication Failed</h1><p>Please check the console for error details and try again.</p></body></html>";
-                        var buffer = System.Text.Encoding.UTF8.GetBytes(errorHtml);
+                        var errorHtml =
+                            "<html><body><h1>Authentication Failed</h1><p>Please check the console for error details and try again.</p></body></html>";
+                        var buffer = Encoding.UTF8.GetBytes(errorHtml);
                         response.ContentType = "text/html";
                         response.ContentLength64 = buffer.Length;
                         await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);

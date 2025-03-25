@@ -111,22 +111,20 @@ internal class Program {
                 }
 
                 // Register the provider with the same ID based on its type
-                if (provider.Type == "GoogleDrive") {
+                if (provider.Type == "GoogleDrive")
                     manager.RegisterGoogleDriveProvider(
                         clientSecretsPath,
                         ApplicationName,
                         TokenStorePath,
                         provider.Id
                     );
-                }
-                else if (provider.Type == "OneDrive") {
+                else if (provider.Type == "OneDrive")
                     manager.RegisterOneDriveProvider(
                         clientSecretsPath,
                         ApplicationName,
                         TokenStorePath,
                         provider.Id
                     );
-                }
 
                 System.Console.WriteLine($"Registered provider: {provider.Name} (ID: {provider.Id})");
             }
