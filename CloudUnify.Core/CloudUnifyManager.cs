@@ -1,6 +1,7 @@
 using CloudUnify.Core.Authentication;
 using CloudUnify.Core.Extensions;
 using CloudUnify.Core.Interfaces;
+using CloudUnify.Core.Models;
 using CloudUnify.Core.Providers;
 
 namespace CloudUnify.Core;
@@ -210,5 +211,75 @@ public class CloudUnifyManager {
                 _providerStorage.UpdateConnectionState(provider.Id, false);
             }
         }
+    }
+
+    public async Task<bool> ConnectProviderAsync(StorageProvider providerType) {
+        try {
+            var providerId = Guid.NewGuid().ToString();
+            var userId = "default_user"; // TODO: Get actual user ID from authentication
+
+            switch (providerType) {
+                case StorageProvider.GoogleDrive:
+                    var (_, success) = await ConnectGoogleDriveAsync(
+                        "client_secrets.json", // TODO: Get from configuration
+                        ApplicationName,
+                        TokenStorePath,
+                        userId,
+                        providerId
+                    );
+                    return success;
+
+                case StorageProvider.OneDrive:
+                    var (_, oneDriveSuccess) = await ConnectOneDriveAsync(
+                        "client_secrets.json", // TODO: Get from configuration
+                        ApplicationName,
+                        TokenStorePath,
+                        userId,
+                        providerId
+                    );
+                    return oneDriveSuccess;
+
+                default:
+                    return false;
+            }
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error connecting to provider: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<IEnumerable<StorageProviderInfo>> GetConnectedProvidersAsync() {
+        var providerIds = GetProviderIds();
+        var storageInfo = await GetStorageInfoAsync();
+
+        return providerIds.Select(id => {
+            var info = storageInfo.FirstOrDefault(s => s.ProviderId == id);
+            return new StorageProviderInfo {
+                ProviderId = id,
+                ProviderType = GetProviderType(id),
+                AccountName = info?.UserEmail ?? "Unknown",
+                UsedSpace = info?.UsedSpace ?? 0,
+                TotalSpace = info?.TotalSpace ?? 0
+            };
+        });
+    }
+
+    private StorageProvider GetProviderType(string providerId) {
+        if (_providers.TryGetValue(providerId, out var provider))
+            return provider switch {
+                GoogleDriveProvider => StorageProvider.GoogleDrive,
+                OneDriveProvider => StorageProvider.OneDrive,
+                _ => StorageProvider.Unknown
+            };
+        return StorageProvider.Unknown;
+    }
+
+    public async Task DisconnectProviderAsync(StorageProvider providerType) {
+        var providerId = _providers.FirstOrDefault(p => GetProviderType(p.Key) == providerType).Key;
+        if (string.IsNullOrEmpty(providerId))
+            throw new ArgumentException($"No connected provider found for type {providerType}");
+
+        await DisconnectProviderAsync(providerId, "default_user"); // TODO: Get actual user ID from authentication
     }
 }
