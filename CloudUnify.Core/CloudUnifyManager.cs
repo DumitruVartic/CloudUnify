@@ -1,13 +1,21 @@
 using CloudUnify.Core.Authentication;
 using CloudUnify.Core.Extensions;
+using CloudUnify.Core.Interfaces;
 using CloudUnify.Core.Providers;
 
 namespace CloudUnify.Core;
 
 public class CloudUnifyManager {
+    private const string ApplicationName = "CloudUnify";
+    private const string TokenStorePath = "token_store";
     private readonly Dictionary<string, IAuthProvider> _authHelpers = new();
     private readonly CloudUnify _cloudUnify = new();
     private readonly Dictionary<string, ICloudProvider> _providers = new();
+    private readonly IProviderStorage _providerStorage;
+
+    public CloudUnifyManager(IProviderStorage providerStorage) {
+        _providerStorage = providerStorage;
+    }
 
     public async Task<(string ProviderId, bool Success)> ConnectGoogleDriveAsync(
         string clientSecretsPath,
@@ -154,5 +162,53 @@ public class CloudUnifyManager {
     // Add search functionality directly to the manager
     public Task<List<UnifiedCloudFile>> SearchFilesAsync(string searchTerm, SearchOptions? options = null) {
         return _cloudUnify.SearchFilesAsync(searchTerm, options);
+    }
+
+    public async Task AutoConnectProvidersAsync() {
+        var connectedProviders = _providerStorage.GetConnectedProviders();
+
+        if (connectedProviders.Count == 0) return;
+
+        foreach (var provider in connectedProviders) {
+            if (string.IsNullOrEmpty(provider.UserId)) continue;
+
+            if (!HasProvider(provider.Id)) continue;
+
+            try {
+                var clientSecretsPath = provider.ClientSecretsPath;
+                if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) continue;
+
+                bool success;
+                if (provider.Type == "GoogleDrive") {
+                    var (_, connected) = await ConnectGoogleDriveAsync(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.UserId,
+                        provider.Id
+                    );
+                    success = connected;
+                }
+                else if (provider.Type == "OneDrive") {
+                    var (_, connected) = await ConnectOneDriveAsync(
+                        clientSecretsPath,
+                        ApplicationName,
+                        TokenStorePath,
+                        provider.UserId,
+                        provider.Id
+                    );
+                    success = connected;
+                }
+                else {
+                    continue;
+                }
+
+                _providerStorage.UpdateConnectionState(provider.Id, success);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error reconnecting to {provider.Name}: {ex.Message}");
+                _providerStorage.UpdateConnectionState(provider.Id, false);
+            }
+        }
     }
 }

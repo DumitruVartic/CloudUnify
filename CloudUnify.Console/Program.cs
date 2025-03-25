@@ -1,6 +1,8 @@
 ﻿using System.Text;
 using CloudUnify.Core;
 using CloudUnify.Core.Extensions;
+using CloudUnify.Core.Models;
+using CloudUnify.Core.Storage;
 
 namespace CloudUnify.Console;
 
@@ -15,14 +17,17 @@ internal class Program {
         System.Console.WriteLine("CloudUnify Console Test Application");
         System.Console.WriteLine("==================================");
 
-        // Initialize CloudUnifyManager
-        var manager = new CloudUnifyManager();
+        // Initialize provider storage
+        var providerStorage = new ProviderStorage(ProviderStoragePath);
+
+        // Initialize CloudUnifyManager with provider storage
+        var manager = new CloudUnifyManager(providerStorage);
 
         // Register providers from storage
         await RegisterStoredProviders(manager);
 
         // Auto-connect to previously connected providers
-        await AutoConnectProvidersAsync(manager);
+        await manager.AutoConnectProvidersAsync();
 
         try {
             // Display menu
@@ -135,82 +140,6 @@ internal class Program {
             catch (Exception ex) {
                 System.Console.WriteLine($"Error connecting provider '{provider.Name}': {ex.Message}");
             }
-    }
-
-    private static async Task AutoConnectProvidersAsync(CloudUnifyManager manager) {
-        System.Console.WriteLine("Checking for previously connected providers...");
-
-        var connectedProviders = _providerStorage.GetConnectedProviders();
-
-        if (connectedProviders.Count == 0) {
-            System.Console.WriteLine("No previously connected providers found.");
-            return;
-        }
-
-        System.Console.WriteLine($"Found {connectedProviders.Count} previously connected providers. Attempting to reconnect...");
-
-        foreach (var provider in connectedProviders) {
-            if (string.IsNullOrEmpty(provider.UserId)) {
-                System.Console.WriteLine($"Skipping provider '{provider.Name}' (no user ID stored)");
-                continue;
-            }
-
-            if (!manager.HasProvider(provider.Id)) {
-                System.Console.WriteLine($"Skipping provider '{provider.Name}' (not registered with manager)");
-                continue;
-            }
-
-            System.Console.WriteLine($"Reconnecting to {provider.Name} as {provider.UserId}...");
-
-            try {
-                var clientSecretsPath = provider.ClientSecretsPath;
-                if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
-                    System.Console.WriteLine($"Warning: Client secrets file not found for provider '{provider.Name}'. Skipping.");
-                    continue;
-                }
-
-                bool success;
-                if (provider.Type == "GoogleDrive") {
-                    var (_, connected) = await manager.ConnectGoogleDriveAsync(
-                        clientSecretsPath,
-                        ApplicationName,
-                        TokenStorePath,
-                        provider.UserId,
-                        provider.Id
-                    );
-                    success = connected;
-                }
-                else if (provider.Type == "OneDrive") {
-                    var (_, connected) = await manager.ConnectOneDriveAsync(
-                        clientSecretsPath,
-                        ApplicationName,
-                        TokenStorePath,
-                        provider.UserId,
-                        provider.Id
-                    );
-                    success = connected;
-                }
-                else {
-                    System.Console.WriteLine($"Unknown provider type: {provider.Type}");
-                    continue;
-                }
-
-                if (success) {
-                    System.Console.WriteLine($"Successfully reconnected to {provider.Name}!");
-                    _providerStorage.UpdateConnectionState(provider.Id, true);
-                }
-                else {
-                    System.Console.WriteLine($"Failed to reconnect to {provider.Name}.");
-                    _providerStorage.UpdateConnectionState(provider.Id, false);
-                }
-            }
-            catch (Exception ex) {
-                System.Console.WriteLine($"Error reconnecting to {provider.Name}: {ex.Message}");
-                _providerStorage.UpdateConnectionState(provider.Id, false);
-            }
-        }
-
-        System.Console.WriteLine("Auto-connection process completed.");
     }
 
     private static void ListRegisteredProviders(CloudUnifyManager manager) {

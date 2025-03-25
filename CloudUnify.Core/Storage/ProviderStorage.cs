@@ -1,8 +1,10 @@
 using System.Text.Json;
+using CloudUnify.Core.Interfaces;
+using CloudUnify.Core.Models;
 
-namespace CloudUnify.Console;
+namespace CloudUnify.Core.Storage;
 
-public class ProviderStorage {
+public class ProviderStorage : IProviderStorage {
     private readonly string _storagePath;
     private Dictionary<string, ProviderInfo> _providers = new();
 
@@ -87,7 +89,7 @@ public class ProviderStorage {
             }
         }
         catch (Exception ex) {
-            System.Console.WriteLine($"Error loading providers: {ex.Message}");
+            Console.WriteLine($"Error loading providers: {ex.Message}");
             _providers = new Dictionary<string, ProviderInfo>();
         }
     }
@@ -98,18 +100,7 @@ public class ProviderStorage {
             File.WriteAllText(_storagePath, json);
         }
         catch (Exception ex) {
-            System.Console.WriteLine($"Error saving providers: {ex.Message}");
+            Console.WriteLine($"Error saving providers: {ex.Message}");
         }
     }
-}
-
-public class ProviderInfo {
-    public string Id { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public DateTime AddedAt { get; set; }
-    public bool IsConnected { get; set; }
-    public string? UserId { get; set; }
-    public DateTime? LastConnected { get; set; }
-    public string? ClientSecretsPath { get; set; }
 }
