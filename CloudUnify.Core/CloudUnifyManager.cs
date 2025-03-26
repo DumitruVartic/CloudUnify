@@ -44,6 +44,7 @@ public class CloudUnifyManager {
             if (connected) {
                 _providers[providerId] = provider;
                 _cloudUnify.RegisterProvider(provider);
+                _providerStorage.SaveProvider(providerId, "GoogleDrive", provider.Name, userId, clientSecretsPath);
                 return (providerId, true);
             }
 
@@ -81,6 +82,7 @@ public class CloudUnifyManager {
             if (connected) {
                 _providers[providerId] = provider;
                 _cloudUnify.RegisterProvider(provider);
+                _providerStorage.SaveProvider(providerId, "OneDrive", provider.Name, userId, clientSecretsPath);
                 return (providerId, true);
             }
 
