@@ -42,29 +42,26 @@
     private bool _navMenuVisible;
     private string _currentPath = "/";
 
-    protected override async Task OnInitializedAsync()
-    {
+    protected override async Task OnInitializedAsync() {
         await Task.CompletedTask;
         _currentPath = NavigationService.GetCurrentPath();
     }
 
-    private void ToggleNavMenu(ChangeEventArgs e)
-    {
+    private void ToggleNavMenu(ChangeEventArgs e) {
         _navMenuVisible = (bool)e.Value;
         StateHasChanged();
     }
 
-    private void CloseNavMenu()
-    {
+    private void CloseNavMenu() {
         _navMenuVisible = false;
         StateHasChanged();
     }
 
-    private async Task NavigateAndCloseAsync(string path)
-    {
+    private async Task NavigateAndCloseAsync(string path) {
         await Task.CompletedTask;
         _currentPath = path;
         await NavigationService.NavigateToAsync(path);
         CloseNavMenu();
     }
+
 }

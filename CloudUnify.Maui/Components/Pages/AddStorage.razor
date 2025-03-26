@@ -1,8 +1,7 @@
 @page "/add-storage"
 @using CloudUnify.Core
-@using CloudUnify.Core.Models
 @using CloudUnify.Core.Interfaces
-@using CloudUnify.Maui.Services
+@using CloudUnify.Core.Models
 @inject NavigationService NavigationService
 @inject CloudUnifyManager CloudUnifyManager
 @inject IProviderStorage ProviderStorage
@@ -21,7 +20,9 @@
                 <div class="card-body">
                     <h5 class="card-title">Google Drive</h5>
                     <p class="card-text">Connect to your Google Drive account to access and manage your files.</p>
-                    <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.GoogleDrive)">Connect Google Drive</button>
+                    <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.GoogleDrive)">
+                        Connect Google Drive
+                    </button>
                 </div>
             </div>
         </div>
@@ -30,37 +31,49 @@
                 <div class="card-body">
                     <h5 class="card-title">OneDrive</h5>
                     <p class="card-text">Connect to your OneDrive account to access and manage your files.</p>
-                    <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.OneDrive)">Connect OneDrive</button>
+                    <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.OneDrive)">Connect
+                        OneDrive
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    @if (_showProviderForm)
-    {
+    @if (_showProviderForm) {
         <div class="row mt-4">
             <div class="col-md-8 offset-md-2">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Connect to @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Drive" : "OneDrive")</h5>
+                        <h5 class="card-title">Connect
+                            to @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Drive" : "OneDrive")</h5>
                         <form @onsubmit="ConnectProvider">
                             <div class="mb-3">
                                 <label for="clientSecretsPath" class="form-label">Client Secrets File Path</label>
-                                <input type="text" class="form-control" id="clientSecretsPath" @bind="_clientSecretsPath" required>
-                                <div class="form-text">Path to your client_secret.json file from @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Cloud Console" : "Microsoft Azure Portal").</div>
+                                <input type="text" class="form-control" id="clientSecretsPath"
+                                       @bind="_clientSecretsPath" required>
+                                <div class="form-text">Path to your client_secret.json file
+                                    from @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Cloud Console" : "Microsoft Azure Portal").
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="providerName" class="form-label">Provider Name</label>
-                                <input type="text" class="form-control" id="providerName" @bind="_providerName" required>
-                                <div class="form-text">A friendly name for this provider (e.g., "@(_selectedProvider == StorageProvider.GoogleDrive ? "Work Google Drive" : "Work OneDrive")").</div>
+                                <input type="text" class="form-control" id="providerName" @bind="_providerName"
+                                       required>
+                                <div class="form-text">A friendly name for this provider (e.g.,
+                                    "@(_selectedProvider == StorageProvider.GoogleDrive ? "Work Google Drive" : "Work OneDrive")").
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="userId" class="form-label">User ID</label>
                                 <input type="email" class="form-control" id="userId" @bind="_userId" required>
-                                <div class="form-text">Your @(_selectedProvider == StorageProvider.GoogleDrive ? "Google" : "Microsoft") account email address.</div>
+                                <div class="form-text">
+                                    Your @(_selectedProvider == StorageProvider.GoogleDrive ? "Google" : "Microsoft") account
+                                    email address.
+                                </div>
                             </div>
                             <div class="d-flex justify-content-between">
-                                <button type="button" class="btn btn-secondary" @onclick="HideProviderForm">Cancel</button>
+                                <button type="button" class="btn btn-secondary" @onclick="HideProviderForm">Cancel
+                                </button>
                                 <button type="submit" class="btn btn-primary">Connect</button>
                             </div>
                         </form>
@@ -86,26 +99,21 @@
     private string _providerName = "";
     private string _userId = "";
 
-    private void ShowProviderForm(StorageProvider provider)
-    {
+    private void ShowProviderForm(StorageProvider provider) {
         _selectedProvider = provider;
         _showProviderForm = true;
     }
 
-    private void HideProviderForm()
-    {
+    private void HideProviderForm() {
         _showProviderForm = false;
         _clientSecretsPath = "";
         _providerName = "";
         _userId = "";
     }
 
-    private async Task ConnectProvider()
-    {
-        try
-        {
-            var (providerId, success) = _selectedProvider switch
-            {
+    private async Task ConnectProvider() {
+        try {
+            var (providerId, success) = _selectedProvider switch {
                 StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
                     _clientSecretsPath,
                     "CloudUnify",
@@ -121,8 +129,7 @@
                 _ => throw new ArgumentException("Unsupported provider type")
             };
 
-            if (success)
-            {
+            if (success) {
                 // Save provider information
                 ProviderStorage.SaveProvider(
                     providerId,
@@ -134,23 +141,21 @@
 
                 await NavigationService.NavigateToStoragesAsync();
             }
-            else
-            {
+            else {
                 // TODO: Show error message
                 Console.WriteLine($"Failed to connect to {_selectedProvider}. Provider ID: {providerId}");
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             // TODO: Show error message
             Console.WriteLine($"Error connecting to {_selectedProvider}: {ex.Message}");
         }
     }
 
-    private async Task NavigateBack()
-    {
+    private async Task NavigateBack() {
         await NavigationService.NavigateToStoragesAsync();
     }
+
 }
 
 <style>
