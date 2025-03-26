@@ -20,6 +20,7 @@ public static class MauiProgram {
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddScoped<NavigationService>();
         builder.Services.AddMudServices();
+        builder.Services.AddSingleton<SecureStorageService>();
 
         // Register CloudUnify services
         var appDataPath = Path.Combine(FileSystem.AppDataDirectory, "providers.json");

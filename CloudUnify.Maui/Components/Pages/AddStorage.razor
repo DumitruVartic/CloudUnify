@@ -5,6 +5,7 @@
 @inject NavigationService NavigationService
 @inject CloudUnifyManager CloudUnifyManager
 @inject IProviderStorage ProviderStorage
+@inject SecureStorageService SecureStorageService
 
 <div class="container mt-4">
     <div class="row">
@@ -14,73 +15,91 @@
         </div>
     </div>
 
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Google Drive</h5>
-                    <p class="card-text">Connect to your Google Drive account to access and manage your files.</p>
-                    <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.GoogleDrive)">
-                        Connect Google Drive
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">OneDrive</h5>
-                    <p class="card-text">Connect to your OneDrive account to access and manage your files.</p>
-                    <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.OneDrive)">Connect
-                        OneDrive
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @if (_showProviderForm) {
+    @if (!_hasClientSecrets) {
         <div class="row mt-4">
-            <div class="col-md-8 offset-md-2">
-                <div class="card">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <h4 class="alert-heading">Client Secrets Required</h4>
+                    <p>Please provide your client secrets to continue.</p>
+                    <hr>
+                    <form @onsubmit="SaveClientSecrets">
+                        <div class="mb-3">
+                            <label for="googleDriveSecrets" class="form-label">Google Drive Client Secrets</label>
+                            <textarea class="form-control" id="googleDriveSecrets" @bind="_googleDriveSecrets" rows="5"
+                                      required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="oneDriveSecrets" class="form-label">OneDrive Client Secrets</label>
+                            <textarea class="form-control" id="oneDriveSecrets" @bind="_oneDriveSecrets" rows="5"
+                                      required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Client Secrets</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+    else {
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Connect
-                            to @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Drive" : "OneDrive")</h5>
-                        <form @onsubmit="ConnectProvider">
-                            <div class="mb-3">
-                                <label for="clientSecretsPath" class="form-label">Client Secrets File Path</label>
-                                <input type="text" class="form-control" id="clientSecretsPath"
-                                       @bind="_clientSecretsPath" required>
-                                <div class="form-text">Path to your client_secret.json file
-                                    from @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Cloud Console" : "Microsoft Azure Portal").
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="providerName" class="form-label">Provider Name</label>
-                                <input type="text" class="form-control" id="providerName" @bind="_providerName"
-                                       required>
-                                <div class="form-text">A friendly name for this provider (e.g.,
-                                    "@(_selectedProvider == StorageProvider.GoogleDrive ? "Work Google Drive" : "Work OneDrive")").
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="userId" class="form-label">User ID</label>
-                                <input type="email" class="form-control" id="userId" @bind="_userId" required>
-                                <div class="form-text">
-                                    Your @(_selectedProvider == StorageProvider.GoogleDrive ? "Google" : "Microsoft") account
-                                    email address.
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <button type="button" class="btn btn-secondary" @onclick="HideProviderForm">Cancel
-                                </button>
-                                <button type="submit" class="btn btn-primary">Connect</button>
-                            </div>
-                        </form>
+                        <h5 class="card-title">Google Drive</h5>
+                        <p class="card-text">Connect to your Google Drive account to access and manage your files.</p>
+                        <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.GoogleDrive)">
+                            Connect Google Drive
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">OneDrive</h5>
+                        <p class="card-text">Connect to your OneDrive account to access and manage your files.</p>
+                        <button class="btn btn-primary" @onclick="() => ShowProviderForm(StorageProvider.OneDrive)">
+                            Connect OneDrive
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
+
+        @if (_showProviderForm) {
+            <div class="row mt-4">
+                <div class="col-md-8 offset-md-2">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Connect
+                                to @(_selectedProvider == StorageProvider.GoogleDrive ? "Google Drive" : "OneDrive")</h5>
+                            <form @onsubmit="ConnectProvider">
+                                <div class="mb-3">
+                                    <label for="providerName" class="form-label">Provider Name</label>
+                                    <input type="text" class="form-control" id="providerName" @bind="_providerName"
+                                           required>
+                                    <div class="form-text">A friendly name for this provider (e.g.,
+                                        "@(_selectedProvider == StorageProvider.GoogleDrive ? "Work Google Drive" : "Work OneDrive")").
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="userId" class="form-label">User ID</label>
+                                    <input type="email" class="form-control" id="userId" @bind="_userId" required>
+                                    <div class="form-text">
+                                        Your @(_selectedProvider == StorageProvider.GoogleDrive ? "Google" : "Microsoft") account
+                                        email address.
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-secondary" @onclick="HideProviderForm">Cancel
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">Connect</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
     }
 
     <div class="row mt-4">
@@ -94,10 +113,16 @@
 
 @code {
     private bool _showProviderForm;
+    private bool _hasClientSecrets;
     private StorageProvider _selectedProvider;
-    private string _clientSecretsPath = "";
     private string _providerName = "";
     private string _userId = "";
+    private string _googleDriveSecrets = "";
+    private string _oneDriveSecrets = "";
+
+    protected override async Task OnInitializedAsync() {
+        _hasClientSecrets = await SecureStorageService.HasClientSecretsAsync();
+    }
 
     private void ShowProviderForm(StorageProvider provider) {
         _selectedProvider = provider;
@@ -106,22 +131,47 @@
 
     private void HideProviderForm() {
         _showProviderForm = false;
-        _clientSecretsPath = "";
         _providerName = "";
         _userId = "";
     }
 
+    private async Task SaveClientSecrets() {
+        try {
+            await SecureStorageService.SaveClientSecretsAsync(_googleDriveSecrets, _oneDriveSecrets);
+            _hasClientSecrets = true;
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error saving client secrets: {ex.Message}");
+            // TODO: Show error message to user
+        }
+    }
+
     private async Task ConnectProvider() {
         try {
+            var clientSecrets = _selectedProvider switch {
+                StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
+                StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
+                _ => throw new ArgumentException("Unsupported provider type")
+            };
+
+            if (string.IsNullOrEmpty(clientSecrets)) {
+                Console.WriteLine("Client secrets not found");
+                return;
+            }
+
+            // Create a temporary file for the client secrets
+            var tempPath = Path.GetTempFileName();
+            await File.WriteAllTextAsync(tempPath, clientSecrets);
+
             var (providerId, success) = _selectedProvider switch {
                 StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
-                    _clientSecretsPath,
+                    tempPath,
                     "CloudUnify",
                     "token_store",
                     _userId
                 ),
                 StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
-                    _clientSecretsPath,
+                    tempPath,
                     "CloudUnify",
                     "token_store",
                     _userId
@@ -129,25 +179,29 @@
                 _ => throw new ArgumentException("Unsupported provider type")
             };
 
+            // Clean up the temporary file
+            try {
+                File.Delete(tempPath);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error deleting temporary file: {ex.Message}");
+            }
+
             if (success) {
-                // Save provider information
                 ProviderStorage.SaveProvider(
                     providerId,
                     _selectedProvider.ToString(),
                     _providerName,
-                    _userId,
-                    _clientSecretsPath
+                    _userId
                 );
 
                 await NavigationService.NavigateToStoragesAsync();
             }
             else {
-                // TODO: Show error message
                 Console.WriteLine($"Failed to connect to {_selectedProvider}. Provider ID: {providerId}");
             }
         }
         catch (Exception ex) {
-            // TODO: Show error message
             Console.WriteLine($"Error connecting to {_selectedProvider}: {ex.Message}");
         }
     }
