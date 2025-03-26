@@ -5,6 +5,18 @@
              x:Class="CloudUnify.Maui.App">
     <Application.Resources>
         <ResourceDictionary>
+            <Color x:Key="Primary">#1976D2</Color>
+            <Color x:Key="Secondary">#424242</Color>
+            <Color x:Key="Tertiary">#2B0B98</Color>
+            <Color x:Key="Background">#FFFFFF</Color>
+            <Color x:Key="Surface">#FFFFFF</Color>
+            <Color x:Key="Error">#B00020</Color>
+            <Color x:Key="OnPrimary">#FFFFFF</Color>
+            <Color x:Key="OnSecondary">#FFFFFF</Color>
+            <Color x:Key="OnTertiary">#FFFFFF</Color>
+            <Color x:Key="OnBackground">#000000</Color>
+            <Color x:Key="OnSurface">#000000</Color>
+            <Color x:Key="OnError">#FFFFFF</Color>
 
             <!--
             For information about styling .NET MAUI pages

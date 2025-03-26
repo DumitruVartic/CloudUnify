@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using CloudUnify.Maui.Services;
+using Microsoft.Extensions.Logging;
+using MudBlazor.Services;
 
 namespace CloudUnify.Maui;
 
@@ -7,9 +9,14 @@ public static class MauiProgram {
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
-            .ConfigureFonts(fonts => { fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular"); });
+            .ConfigureFonts(fonts => {
+                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+            });
 
         builder.Services.AddMauiBlazorWebView();
+        builder.Services.AddScoped<NavigationService>();
+        builder.Services.AddMudServices();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

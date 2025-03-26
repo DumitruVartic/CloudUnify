@@ -1,7 +1,39 @@
-﻿@using CloudUnify.Maui.Components.Layout
-<Router AppAssembly="@typeof(MauiProgram).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
-    </Found>
-</Router>
+﻿<ErrorBoundary @ref="errorBoundary">
+    <ChildContent>
+        <Router AppAssembly="@typeof(MauiProgram).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
+            </Found>
+            <NotFound>
+                <PageTitle>Not found</PageTitle>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <p role="alert">Sorry, there's nothing at this address.</p>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </ChildContent>
+    <ErrorContent>
+        <PageTitle>Error</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <div class="error-container">
+                <h1>Error</h1>
+                <p>An error has occurred while processing your request.</p>
+                <button class="btn btn-primary" @onclick="HandleRecover">Try again</button>
+            </div>
+        </LayoutView>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    private ErrorBoundary? errorBoundary;
+
+    protected override void OnParametersSet() {
+        errorBoundary?.Recover();
+    }
+
+    private void HandleRecover() {
+        errorBoundary?.Recover();
+    }
+
+}
