@@ -1,9 +1,13 @@
-﻿<ErrorBoundary @ref="errorBoundary">
+﻿@using Microsoft.AspNetCore.Components.Routing
+@using CloudUnify.Maui.Components.Layout
+@using CloudUnify.Maui.Components.Pages
+
+<ErrorBoundary @ref="errorBoundary">
     <ChildContent>
-        <Router AppAssembly="@typeof(MauiProgram).Assembly">
+        <Router AppAssembly="@typeof(Routes).Assembly">
             <Found Context="routeData">
-                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-                <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
             </Found>
             <NotFound>
                 <PageTitle>Not found</PageTitle>
@@ -19,7 +23,7 @@
             <div class="error-container">
                 <h1>Error</h1>
                 <p>An error has occurred while processing your request.</p>
-                <button class="btn btn-primary" @onclick="HandleRecover">Try again</button>
+                <button class="btn btn-primary" @onclick="@(async () => await HandleRecoverAsync())">Try again</button>
             </div>
         </LayoutView>
     </ErrorContent>
@@ -28,12 +32,15 @@
 @code {
     private ErrorBoundary? errorBoundary;
 
-    protected override void OnParametersSet() {
+    protected override async Task OnParametersSetAsync()
+    {
+        await Task.CompletedTask;
         errorBoundary?.Recover();
     }
 
-    private void HandleRecover() {
+    private async Task HandleRecoverAsync()
+    {
+        await Task.CompletedTask;
         errorBoundary?.Recover();
     }
-
 }

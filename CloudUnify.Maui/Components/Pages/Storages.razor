@@ -17,7 +17,17 @@
         </div>
     </div>
 
-    @if (_providers == null || _providers.Count == 0)
+    @if (_providers == null)
+    {
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    }
+    else if (_providers.Count == 0)
     {
         <div class="row mt-4">
             <div class="col-12">
@@ -55,10 +65,23 @@
                                         }
                                         @provider.Name
                                     </h5>
-                                    <p class="text-muted mb-1">@provider.UserId</p>
-                                    <small class="text-muted">
-                                        Added: @provider.AddedAt.ToString("dd.MM.yyyy HH:mm:ss")
-                                    </small>
+                                    <div class="provider-details">
+                                        <p class="text-muted mb-1">
+                                            <i class="bi bi-person"></i> @provider.UserId
+                                        </p>
+                                        <p class="text-muted mb-1">
+                                            <i class="bi bi-key"></i> ID: @provider.Id
+                                        </p>
+                                        <p class="text-muted mb-1">
+                                            <i class="bi bi-clock"></i> Added: @provider.AddedAt.ToString("dd.MM.yyyy HH:mm:ss")
+                                        </p>
+                                        @if (provider.LastConnected.HasValue)
+                                        {
+                                            <p class="text-muted mb-1">
+                                                <i class="bi bi-check-circle"></i> Last Connected: @provider.LastConnected.Value.ToString("dd.MM.yyyy HH:mm:ss")
+                                            </p>
+                                        }
+                                    </div>
                                 </div>
                                 <div class="dropdown">
                                     <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown">
@@ -66,12 +89,12 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li>
-                                            <button class="dropdown-item" @onclick="() => DisconnectProvider(provider.Id, provider.UserId)">
+                                            <button class="dropdown-item" @onclick="@(async () => await DisconnectProviderAsync(provider.Id, provider.UserId))">
                                                 <i class="bi bi-power"></i> Disconnect
                                             </button>
                                         </li>
                                         <li>
-                                            <button class="dropdown-item" @onclick="() => RemoveProvider(provider.Id)">
+                                            <button class="dropdown-item" @onclick="@(async () => await RemoveProviderAsync(provider.Id))">
                                                 <i class="bi bi-trash"></i> Remove
                                             </button>
                                         </li>
@@ -133,9 +156,21 @@
         await LoadStorageInfoAsync();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            await LoadProvidersAsync();
+            await LoadStorageInfoAsync();
+        }
+    }
+
     private async Task LoadProvidersAsync()
     {
-        _providers = ProviderStorage.GetAllProviders();
+        await Task.Run(() =>
+        {
+            _providers = ProviderStorage.GetAllProviders();
+        });
     }
 
     private async Task LoadStorageInfoAsync()
@@ -148,7 +183,7 @@
         await NavigationService.NavigateToAddStorageAsync();
     }
 
-    private async Task DisconnectProvider(string providerId, string? userId)
+    private async Task DisconnectProviderAsync(string providerId, string? userId)
     {
         if (userId == null) return;
         
@@ -156,6 +191,7 @@
         {
             await CloudUnifyManager.DisconnectProviderAsync(providerId, userId);
             await LoadProvidersAsync();
+            await LoadStorageInfoAsync();
         }
         catch (Exception ex)
         {
@@ -164,12 +200,13 @@
         }
     }
 
-    private async Task RemoveProvider(string providerId)
+    private async Task RemoveProviderAsync(string providerId)
     {
         try
         {
             ProviderStorage.RemoveProvider(providerId);
             await LoadProvidersAsync();
+            await LoadStorageInfoAsync();
         }
         catch (Exception ex)
         {
@@ -228,5 +265,23 @@
 
     .badge {
         padding: 0.5em 0.75em;
+    }
+
+    .provider-details {
+        font-size: 0.9rem;
+    }
+
+    .provider-details i {
+        width: 1.2rem;
+        text-align: center;
+        margin-right: 0.5rem;
+    }
+
+    .card-title {
+        margin-bottom: 1rem;
+    }
+
+    .card-title i {
+        margin-right: 0.5rem;
     }
 </style> 

@@ -13,19 +13,25 @@
     <nav class="flex-column">
         <div class="nav-item px-3">
             <a href="" class="nav-link @(_currentPath == "/" ? "active" : "")"
-               @onclick="@(() => NavigateAndClose("/"))">
+               @onclick="@(async () => await NavigateAndCloseAsync("/"))">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </a>
         </div>
         <div class="nav-item px-3">
             <a href="storages" class="nav-link @(_currentPath == "/storages" ? "active" : "")"
-               @onclick="@(() => NavigateAndClose("/storages"))">
+               @onclick="@(async () => await NavigateAndCloseAsync("/storages"))">
                 <span class="bi bi-folder2-open" aria-hidden="true"></span> Storages
             </a>
         </div>
         <div class="nav-item px-3">
+            <a href="files" class="nav-link @(_currentPath == "/files" ? "active" : "")"
+               @onclick="@(async () => await NavigateAndCloseAsync("/files"))">
+                <span class="bi bi-files" aria-hidden="true"></span> Files
+            </a>
+        </div>
+        <div class="nav-item px-3">
             <a href="add-storage" class="nav-link @(_currentPath == "/add-storage" ? "active" : "")"
-               @onclick="@(() => NavigateAndClose("/add-storage"))">
+               @onclick="@(async () => await NavigateAndCloseAsync("/add-storage"))">
                 <span class="bi bi-plus-circle" aria-hidden="true"></span> Add Storage
             </a>
         </div>
@@ -36,24 +42,29 @@
     private bool _navMenuVisible;
     private string _currentPath = "/";
 
-    protected override void OnInitialized() {
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.CompletedTask;
         _currentPath = NavigationService.GetCurrentPath();
     }
 
-    private void ToggleNavMenu(ChangeEventArgs e) {
+    private void ToggleNavMenu(ChangeEventArgs e)
+    {
         _navMenuVisible = (bool)e.Value;
         StateHasChanged();
     }
 
-    private void CloseNavMenu() {
+    private void CloseNavMenu()
+    {
         _navMenuVisible = false;
         StateHasChanged();
     }
 
-    private async Task NavigateAndClose(string path) {
+    private async Task NavigateAndCloseAsync(string path)
+    {
+        await Task.CompletedTask;
         _currentPath = path;
         await NavigationService.NavigateToAsync(path);
         CloseNavMenu();
     }
-
 }

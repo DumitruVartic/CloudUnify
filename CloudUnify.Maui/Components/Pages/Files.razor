@@ -1,0 +1,349 @@
+@page "/files"
+@using CloudUnify.Core
+@using CloudUnify.Core.Models
+@using CloudUnify.Core.Interfaces
+@using CloudUnify.Maui.Services
+@inject NavigationService NavigationService
+@inject CloudUnifyManager CloudUnifyManager
+@inject IProviderStorage ProviderStorage
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2>Files</h2>
+            <div>
+                <button class="btn btn-outline-primary me-2" @onclick="RefreshFiles">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+                <button class="btn btn-primary" @onclick="ShowUploadDialog">
+                    <i class="bi bi-upload"></i> Upload
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" class="form-control" placeholder="Search files..." @bind="_searchTerm" @bind:event="oninput" @onkeyup="HandleSearch">
+            </div>
+        </div>
+    </div>
+
+    @if (_files == null)
+    {
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    }
+    else if (_files.Count == 0)
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-folder-x display-1 text-muted"></i>
+                        <h5 class="mt-3">No Files Found</h5>
+                        <p class="text-muted">Upload some files or try a different search term.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Provider</th>
+                                <th>Size</th>
+                                <th>Modified</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var file in _files)
+                            {
+                                <tr>
+                                    <td>
+                                        <i class="bi @(file.IsFolder ? "bi-folder" : "bi-file-earmark") me-2"></i>
+                                        @file.Name
+                                    </td>
+                                    <td>
+                                        @if (file.ProviderName == "GoogleDrive")
+                                        {
+                                            <i class="bi bi-google text-danger"></i>
+                                        }
+                                        else if (file.ProviderName == "OneDrive")
+                                        {
+                                            <i class="bi bi-microsoft text-primary"></i>
+                                        }
+                                        @file.ProviderName
+                                    </td>
+                                    <td>@FormatBytes(file.Size)</td>
+                                    <td>@file.ModifiedAt.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            @if (!file.IsFolder)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => DownloadFile(file)">
+                                                    <i class="bi bi-download"></i>
+                                                </button>
+                                            }
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenFile(file)">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showUploadDialog)
+{
+    <div class="modal fade show" style="display: block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload File</h5>
+                    <button type="button" class="btn-close" @onclick="HideUploadDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select Provider</label>
+                        <select class="form-select" @bind="_selectedProviderId">
+                            <option value="">Choose a provider...</option>
+                            @foreach (var provider in _connectedProviders)
+                            {
+                                <option value="@provider.Id">@provider.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select File</label>
+                        <InputFile class="form-control" OnChange="@(async (e) => await HandleFileSelectAsync(e))" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="@(async () => await HideUploadDialogAsync())">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="@(async () => await UploadFileAsync())" disabled="@(!CanUpload)">
+                        <i class="bi bi-upload"></i> Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<UnifiedCloudFile>? _files;
+    private List<ProviderInfo> _connectedProviders = new();
+    private bool _showUploadDialog;
+    private string _selectedProviderId = "";
+    private IBrowserFile? _selectedFile;
+    private string _searchTerm = "";
+    private System.Threading.Timer? _searchTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConnectedProvidersAsync();
+        await LoadFilesAsync();
+    }
+
+    private async Task LoadConnectedProvidersAsync()
+    {
+        await Task.Run(() =>
+        {
+            var providers = ProviderStorage.GetAllProviders();
+            _connectedProviders = providers.Where(p => p.IsConnected && CloudUnifyManager.HasProvider(p.Id)).ToList();
+        });
+    }
+
+    private async Task LoadFilesAsync()
+    {
+        try
+        {
+            _files = await CloudUnifyManager.ListAllFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Show error message
+            Console.WriteLine($"Error loading files: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshFiles()
+    {
+        await LoadFilesAsync();
+    }
+
+    private void ShowUploadDialog()
+    {
+        _showUploadDialog = true;
+        _selectedProviderId = "";
+        _selectedFile = null;
+    }
+
+    private void HideUploadDialog()
+    {
+        _showUploadDialog = false;
+        _selectedProviderId = "";
+        _selectedFile = null;
+    }
+
+    private async Task HandleFileSelectAsync(InputFileChangeEventArgs e)
+    {
+        await Task.CompletedTask;
+        _selectedFile = e.File;
+    }
+
+    private async Task HideUploadDialogAsync()
+    {
+        await Task.CompletedTask;
+        _showUploadDialog = false;
+        _selectedProviderId = "";
+        _selectedFile = null;
+    }
+
+    private bool CanUpload => !string.IsNullOrEmpty(_selectedProviderId) && _selectedFile != null;
+
+    private async Task UploadFileAsync()
+    {
+        if (!CanUpload) return;
+
+        try
+        {
+            using var stream = _selectedFile!.OpenReadStream();
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            var uploadedFile = await CloudUnifyManager.UploadFileAsync(
+                memoryStream.ToArray(),
+                _selectedFile.Name,
+                "/",
+                _selectedProviderId
+            );
+
+            // TODO: Show success message
+            Console.WriteLine($"File uploaded successfully: {uploadedFile.Name}");
+
+            await HideUploadDialogAsync();
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Show error message
+            Console.WriteLine($"Error uploading file: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadFile(UnifiedCloudFile file)
+    {
+        try
+        {
+            var content = await CloudUnifyManager.DownloadFileAsync(file.Id, file.ProviderId);
+            // TODO: Implement file download using browser's download capabilities
+            Console.WriteLine($"File downloaded: {file.Name}");
+        }
+        catch (Exception ex)
+        {
+            // TODO: Show error message
+            Console.WriteLine($"Error downloading file: {ex.Message}");
+        }
+    }
+
+    private void OpenFile(UnifiedCloudFile file)
+    {
+        if (!string.IsNullOrEmpty(file.WebViewLink))
+        {
+            // TODO: Open file in browser
+            Console.WriteLine($"Opening file: {file.WebViewLink}");
+        }
+    }
+
+    private void HandleSearch(KeyboardEventArgs e)
+    {
+        _searchTimer?.Dispose();
+        _searchTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                if (string.IsNullOrWhiteSpace(_searchTerm))
+                {
+                    await LoadFilesAsync();
+                }
+                else
+                {
+                    try
+                    {
+                        _files = await CloudUnifyManager.SearchFilesAsync(_searchTerm);
+                    }
+                    catch (Exception ex)
+                    {
+                        // TODO: Show error message
+                        Console.WriteLine($"Error searching files: {ex.Message}");
+                    }
+                }
+            });
+        }, null, 500, Timeout.Infinite);
+    }
+
+    private string FormatBytes(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = bytes;
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        return $"{size:0.##} {sizes[order]}";
+    }
+}
+
+<style>
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        border-top: none;
+        font-weight: 600;
+    }
+
+    .table td {
+        vertical-align: middle;
+    }
+
+    .btn-group {
+        gap: 0.25rem;
+    }
+
+    .modal {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+</style> 
