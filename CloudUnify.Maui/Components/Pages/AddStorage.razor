@@ -1,62 +1,145 @@
 @page "/add-storage"
-@namespace CloudUnify.Maui.Components.Pages
+@using CloudUnify.Core
 @inject NavigationService NavigationService
+@inject CloudUnifyManager CloudUnifyManager
 
-<div class="add-storage-container">
-    <div class="header">
-        <button class="back-button" @onclick="() => NavigationService.NavigateBackAsync()">
-            <i class="fas fa-arrow-left"></i>
-        </button>
-        <h1>Add New Storage</h1>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Add New Storage Provider</h2>
+            <p class="text-muted">Choose a storage provider to connect to your account.</p>
+        </div>
     </div>
 
-    <div class="providers-grid">
-        <div class="provider-card" @onclick="@(() => ConnectProvider("google-drive"))">
-            <img src="images/providers/google-drive.png" alt="Google Drive"/>
-            <h3>Google Drive</h3>
-            <p>Connect your Google Drive account</p>
-            <div class="connect-button">
-                <i class="fas fa-plug"></i>
-                Connect
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Google Drive</h5>
+                    <p class="card-text">Connect to your Google Drive account to access and manage your files.</p>
+                    <button class="btn btn-primary" @onclick="ShowGoogleDriveForm">Connect Google Drive</button>
+                </div>
             </div>
         </div>
-
-        <div class="provider-card" @onclick="@(() => ConnectProvider("dropbox"))">
-            <img src="images/providers/dropbox.png" alt="Dropbox"/>
-            <h3>Dropbox</h3>
-            <p>Connect your Dropbox account</p>
-            <div class="connect-button">
-                <i class="fas fa-plug"></i>
-                Connect
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">OneDrive</h5>
+                    <p class="card-text">Connect to your OneDrive account to access and manage your files.</p>
+                    <button class="btn btn-primary" @onclick="ShowOneDriveForm">Connect OneDrive</button>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="provider-card" @onclick="@(() => ConnectProvider("onedrive"))">
-            <img src="images/providers/onedrive.png" alt="OneDrive"/>
-            <h3>OneDrive</h3>
-            <p>Connect your OneDrive account</p>
-            <div class="connect-button">
-                <i class="fas fa-plug"></i>
-                Connect
+    @if (_showGoogleDriveForm) {
+        <div class="row mt-4">
+            <div class="col-md-8 offset-md-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Connect to Google Drive</h5>
+                        <form @onsubmit="ConnectGoogleDrive">
+                            <div class="mb-3">
+                                <label for="clientSecretsPath" class="form-label">Client Secrets File Path</label>
+                                <input type="text" class="form-control" id="clientSecretsPath"
+                                       @bind="_clientSecretsPath" required>
+                                <div class="form-text">Path to your client_secret.json file from Google Cloud Console.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="providerName" class="form-label">Provider Name</label>
+                                <input type="text" class="form-control" id="providerName" @bind="_providerName"
+                                       required>
+                                <div class="form-text">A friendly name for this provider (e.g., "Work Google Drive").
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="userId" class="form-label">User ID</label>
+                                <input type="email" class="form-control" id="userId" @bind="_userId" required>
+                                <div class="form-text">Your Google account email address.</div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" @onclick="HideGoogleDriveForm">Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary">Connect</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
+    }
 
-        <div class="provider-card" @onclick="@(() => ConnectProvider("box"))">
-            <img src="images/providers/box.png" alt="Box"/>
-            <h3>Box</h3>
-            <p>Connect your Box account</p>
-            <div class="connect-button">
-                <i class="fas fa-plug"></i>
-                Connect
+    @if (_showOneDriveForm) {
+        <div class="row mt-4">
+            <div class="col-md-8 offset-md-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Connect to OneDrive</h5>
+                        <p class="text-muted">OneDrive connection form coming soon...</p>
+                    </div>
+                </div>
             </div>
+        </div>
+    }
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                <i class="bi bi-arrow-left"></i> Back to Storages
+            </button>
         </div>
     </div>
 </div>
 
 @code {
+    private bool _showGoogleDriveForm;
+    private bool _showOneDriveForm;
+    private string _clientSecretsPath = "";
+    private string _providerName = "";
+    private string _userId = "";
 
-    private async Task ConnectProvider(string provider) {
-// TODO: Implement provider connection
+    private void ShowGoogleDriveForm() {
+        _showGoogleDriveForm = true;
+        _showOneDriveForm = false;
+    }
+
+    private void ShowOneDriveForm() {
+        _showGoogleDriveForm = false;
+        _showOneDriveForm = true;
+    }
+
+    private void HideGoogleDriveForm() {
+        _showGoogleDriveForm = false;
+        _clientSecretsPath = "";
+        _providerName = "";
+        _userId = "";
+    }
+
+    private async Task ConnectGoogleDrive() {
+        try {
+            var (providerId, success) = await CloudUnifyManager.ConnectGoogleDriveAsync(
+                _clientSecretsPath,
+                "CloudUnify",
+                "token_store",
+                _userId
+            );
+
+            if (success) {
+                await NavigationService.NavigateToStoragesAsync();
+            }
+            else {
+                // TODO: Show error message
+                Console.WriteLine($"Failed to connect to Google Drive. Provider ID: {providerId}");
+            }
+        }
+        catch (Exception ex) {
+            // TODO: Show error message
+            Console.WriteLine($"Error connecting to Google Drive: {ex.Message}");
+        }
+    }
+
+    private async Task NavigateBack() {
         await NavigationService.NavigateToStoragesAsync();
     }
 

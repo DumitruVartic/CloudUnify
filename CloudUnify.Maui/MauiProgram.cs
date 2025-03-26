@@ -1,4 +1,7 @@
-﻿using CloudUnify.Maui.Services;
+﻿using CloudUnify.Core;
+using CloudUnify.Core.Interfaces;
+using CloudUnify.Core.Storage;
+using CloudUnify.Maui.Services;
 using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
 
@@ -17,6 +20,10 @@ public static class MauiProgram {
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddScoped<NavigationService>();
         builder.Services.AddMudServices();
+
+        // Register CloudUnify services
+        builder.Services.AddSingleton<IProviderStorage>(sp => new ProviderStorage("providers.json"));
+        builder.Services.AddScoped<CloudUnifyManager>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

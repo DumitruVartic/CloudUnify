@@ -1,4 +1,5 @@
 ﻿@inject NavigationService NavigationService
+@inject IJSRuntime JSRuntime
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -6,24 +7,53 @@
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler">
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" @onchange="ToggleNavMenu">
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+<div class="nav-scrollable @(_navMenuVisible ? "show" : "")" @onclick="CloseNavMenu">
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <a href="" class="nav-link" @onclick="@(() => NavigationService.NavigateToWelcomeAsync())">
+            <a href="" class="nav-link @(_currentPath == "/" ? "active" : "")"
+               @onclick="@(() => NavigateAndClose("/"))">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </a>
         </div>
         <div class="nav-item px-3">
-            <a href="storages" class="nav-link" @onclick="@(() => NavigationService.NavigateToStoragesAsync())">
+            <a href="storages" class="nav-link @(_currentPath == "/storages" ? "active" : "")"
+               @onclick="@(() => NavigateAndClose("/storages"))">
                 <span class="bi bi-folder2-open" aria-hidden="true"></span> Storages
             </a>
         </div>
         <div class="nav-item px-3">
-            <a href="add-storage" class="nav-link" @onclick="@(() => NavigationService.NavigateToAddStorageAsync())">
+            <a href="add-storage" class="nav-link @(_currentPath == "/add-storage" ? "active" : "")"
+               @onclick="@(() => NavigateAndClose("/add-storage"))">
                 <span class="bi bi-plus-circle" aria-hidden="true"></span> Add Storage
             </a>
         </div>
     </nav>
 </div>
+
+@code {
+    private bool _navMenuVisible;
+    private string _currentPath = "/";
+
+    protected override void OnInitialized() {
+        _currentPath = NavigationService.GetCurrentPath();
+    }
+
+    private void ToggleNavMenu(ChangeEventArgs e) {
+        _navMenuVisible = (bool)e.Value;
+        StateHasChanged();
+    }
+
+    private void CloseNavMenu() {
+        _navMenuVisible = false;
+        StateHasChanged();
+    }
+
+    private async Task NavigateAndClose(string path) {
+        _currentPath = path;
+        await NavigationService.NavigateToAsync(path);
+        CloseNavMenu();
+    }
+
+}

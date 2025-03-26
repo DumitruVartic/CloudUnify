@@ -9,6 +9,10 @@ public class NavigationService {
         _navigationManager = navigationManager;
     }
 
+    public string GetCurrentPath() {
+        return _navigationManager.Uri;
+    }
+
     public async Task NavigateToWelcomeAsync() {
         await Task.Run(() => _navigationManager.NavigateTo("/"));
     }
@@ -23,6 +27,10 @@ public class NavigationService {
 
     public async Task NavigateBackAsync() {
         await Task.Run(() => _navigationManager.NavigateTo(".."));
+    }
+
+    public async Task NavigateToAsync(string path) {
+        await Task.Run(() => _navigationManager.NavigateTo(path));
     }
 
     // Synchronous methods for backward compatibility
@@ -40,5 +48,9 @@ public class NavigationService {
 
     public void NavigateBack() {
         _navigationManager.NavigateTo("..");
+    }
+
+    public void NavigateTo(string path) {
+        _navigationManager.NavigateTo(path);
     }
 }
