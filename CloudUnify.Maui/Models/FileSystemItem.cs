@@ -11,6 +11,9 @@ public class FileSystemItem
     public DateTime LastModified { get; set; }
     public string Extension => IsDirectory ? null : System.IO.Path.GetExtension(Name)?.ToLowerInvariant();
     public bool IsSelected { get; set; }
+    public string Provider { get; set; } // e.g., "OneDrive", "GoogleDrive", "Dropbox"
+    public string ProviderIconClass => GetProviderIconClass();
+    public string ProviderColor => GetProviderColor();
     
     public string Icon => GetFileIcon();
     
@@ -30,6 +33,28 @@ public class FileSystemItem
             ".mp4" or ".avi" or ".mkv" => "file-play",
             ".zip" or ".rar" or ".7z" => "file-zip",
             _ => "file"
+        };
+    }
+
+    private string GetProviderIconClass()
+    {
+        return Provider?.ToLowerInvariant() switch
+        {
+            "onedrive" => "microsoft",
+            "googledrive" => "google",
+            "dropbox" => "dropbox",
+            _ => "cloud"
+        };
+    }
+
+    private string GetProviderColor()
+    {
+        return Provider?.ToLowerInvariant() switch
+        {
+            "onedrive" => "#0078D4",
+            "googledrive" => "#4285F4",
+            "dropbox" => "#0061FF",
+            _ => "#6c757d"
         };
     }
 } 

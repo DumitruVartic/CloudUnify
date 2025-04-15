@@ -7,20 +7,34 @@
 
 <div class="file-system-container">
     <div class="toolbar">
-        <div class="breadcrumb-container">
-            @foreach (var (name, path) in ViewModel.BreadcrumbItems)
-            {
-                <span class="breadcrumb-item">
-                    <a @onclick="@(() => ViewModel.NavigateToFolder(path))" 
-                       class="@(path == ViewModel.CurrentPath ? "active" : "")">
-                        @name
-                    </a>
-                </span>
-                @if (path != ViewModel.CurrentPath)
+        <div class="toolbar-main">
+            <div class="breadcrumb-container">
+                @foreach (var (name, path) in ViewModel.BreadcrumbItems)
                 {
-                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item">
+                        <a @onclick="@(() => ViewModel.NavigateToFolder(path))" 
+                           class="@(path == ViewModel.CurrentPath ? "active" : "")">
+                            @name
+                        </a>
+                    </span>
+                    @if (path != ViewModel.CurrentPath)
+                    {
+                        <span class="breadcrumb-separator">/</span>
+                    }
                 }
-            }
+            </div>
+            <div class="view-toggle">
+                <button class="action-button @(!ViewModel.IsUnifiedView ? "active" : "")" 
+                        @onclick="@(() => ViewModel.IsUnifiedView = false)">
+                    <i class="bi bi-folder2"></i>
+                    <span>Provider View</span>
+                </button>
+                <button class="action-button @(ViewModel.IsUnifiedView ? "active" : "")" 
+                        @onclick="@(() => ViewModel.IsUnifiedView = true)">
+                    <i class="bi bi-collection"></i>
+                    <span>Unified View</span>
+                </button>
+            </div>
         </div>
         <div class="actions">
             <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())">
@@ -57,6 +71,12 @@
                         {
                             <div class="selection-overlay">
                                 <i class="bi bi-@(item.IsSelected ? "check-circle-fill" : "circle")"></i>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(item.Provider))
+                        {
+                            <div class="provider-indicator" style="background-color: @item.ProviderColor">
+                                <i class="bi bi-@item.ProviderIconClass"></i>
                             </div>
                         }
                     </div>
@@ -139,6 +159,13 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
+    }
+
+    .toolbar-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
     }
 
     .breadcrumb-container {
@@ -253,10 +280,18 @@
     }
 
     .file-icon {
-        font-size: 24px;
-        color: #5f6368;
-        margin-bottom: 8px;
         position: relative;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+
+    .file-list .file-icon {
+        margin-bottom: 0;
+        margin-right: 12px;
     }
 
     .selection-overlay {
@@ -417,6 +452,43 @@
     .context-menu-item i {
         font-size: 1.1em;
         color: #5f6368;
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 4px;
+        padding: 2px;
+        background-color: #f1f3f4;
+        border-radius: 4px;
+    }
+
+    .view-toggle .action-button {
+        background: none;
+        border-radius: 4px;
+    }
+
+    .view-toggle .action-button.active {
+        background-color: white;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .provider-indicator {
+        position: absolute;
+        bottom: -4px;
+        right: -4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+        border: 2px solid white;
+    }
+
+    .provider-indicator i {
+        font-size: 8px;
     }
 </style>
 

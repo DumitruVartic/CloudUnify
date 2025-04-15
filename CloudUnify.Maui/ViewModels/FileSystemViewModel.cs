@@ -6,10 +6,13 @@ namespace CloudUnify.Maui.ViewModels;
 public class FileSystemViewModel
 {
     private Dictionary<string, List<FileSystemItem>> _mockFileSystem;
+    private Dictionary<string, Dictionary<string, List<FileSystemItem>>> _providerFileSystems;
     public ObservableCollection<FileSystemItem> Items { get; set; }
     public string CurrentPath { get; private set; }
     public bool IsGridView { get; set; } = true;
     public bool IsMultiSelect { get; set; }
+    public bool IsUnifiedView { get; set; }
+    public string CurrentProvider { get; private set; }
     public IEnumerable<FileSystemItem> SelectedItems => Items.Where(i => i.IsSelected);
     public List<(string Name, string Path)> BreadcrumbItems { get; private set; }
 
@@ -25,73 +28,143 @@ public class FileSystemViewModel
     private void InitializeMockFileSystem()
     {
         _mockFileSystem = new Dictionary<string, List<FileSystemItem>>();
+        _providerFileSystems = new Dictionary<string, Dictionary<string, List<FileSystemItem>>>();
 
-        // Root directory
-        _mockFileSystem["/"] = new List<FileSystemItem>
+        // Initialize provider-specific file systems
+        InitializeOneDriveFiles();
+        InitializeGoogleDriveFiles();
+        InitializeDropboxFiles();
+
+        // Initialize unified view
+        InitializeUnifiedView();
+    }
+
+    private void InitializeOneDriveFiles()
+    {
+        var oneDrive = new Dictionary<string, List<FileSystemItem>>();
+        
+        oneDrive["/"] = new List<FileSystemItem>
         {
-            new() { Name = "Documents", Path = "/Documents", IsDirectory = true, LastModified = DateTime.Now.AddDays(-1) },
-            new() { Name = "Pictures", Path = "/Pictures", IsDirectory = true, LastModified = DateTime.Now.AddDays(-2) },
-            new() { Name = "Work", Path = "/Work", IsDirectory = true, LastModified = DateTime.Now.AddHours(-5) },
-            new() { Name = "report.pdf", Path = "/report.pdf", IsDirectory = false, Size = 1024 * 1024, LastModified = DateTime.Now.AddHours(-2) }
+            new() { Name = "Documents", Path = "/Documents", IsDirectory = true, LastModified = DateTime.Now.AddDays(-1), Provider = "OneDrive" },
+            new() { Name = "report.pdf", Path = "/report.pdf", IsDirectory = false, Size = 1024 * 1024, LastModified = DateTime.Now.AddHours(-2), Provider = "OneDrive" }
         };
 
-        // Documents folder
-        _mockFileSystem["/Documents"] = new List<FileSystemItem>
+        oneDrive["/Documents"] = new List<FileSystemItem>
         {
-            new() { Name = "Projects", Path = "/Documents/Projects", IsDirectory = true, LastModified = DateTime.Now.AddDays(-1) },
-            new() { Name = "presentation.pptx", Path = "/Documents/presentation.pptx", IsDirectory = false, Size = 2L * 1024 * 1024, LastModified = DateTime.Now.AddHours(-1) },
-            new() { Name = "document.docx", Path = "/Documents/document.docx", IsDirectory = false, Size = 750 * 1024, LastModified = DateTime.Now.AddMinutes(-45) }
+            new() { Name = "presentation.pptx", Path = "/Documents/presentation.pptx", IsDirectory = false, Size = 2L * 1024 * 1024, LastModified = DateTime.Now.AddHours(-1), Provider = "OneDrive" }
         };
 
-        // Pictures folder
-        _mockFileSystem["/Pictures"] = new List<FileSystemItem>
+        _providerFileSystems["OneDrive"] = oneDrive;
+    }
+
+    private void InitializeGoogleDriveFiles()
+    {
+        var googleDrive = new Dictionary<string, List<FileSystemItem>>();
+        
+        googleDrive["/"] = new List<FileSystemItem>
         {
-            new() { Name = "Vacation", Path = "/Pictures/Vacation", IsDirectory = true, LastModified = DateTime.Now.AddDays(-5) },
-            new() { Name = "image1.jpg", Path = "/Pictures/image1.jpg", IsDirectory = false, Size = 500 * 1024, LastModified = DateTime.Now.AddMinutes(-30) },
-            new() { Name = "image2.png", Path = "/Pictures/image2.png", IsDirectory = false, Size = (long)(1.5 * 1024 * 1024), LastModified = DateTime.Now.AddHours(-3) }
+            new() { Name = "Projects", Path = "/Projects", IsDirectory = true, LastModified = DateTime.Now.AddDays(-3), Provider = "GoogleDrive" },
+            new() { Name = "spreadsheet.xlsx", Path = "/spreadsheet.xlsx", IsDirectory = false, Size = (long)(1.5 * 1024 * 1024), LastModified = DateTime.Now.AddHours(-4), Provider = "GoogleDrive" }
         };
 
-        // Work folder
-        _mockFileSystem["/Work"] = new List<FileSystemItem>
+        googleDrive["/Projects"] = new List<FileSystemItem>
         {
-            new() { Name = "Meetings", Path = "/Work/Meetings", IsDirectory = true, LastModified = DateTime.Now.AddDays(-1) },
-            new() { Name = "project-plan.xlsx", Path = "/Work/project-plan.xlsx", IsDirectory = false, Size = (long)(1.2 * 1024 * 1024), LastModified = DateTime.Now.AddHours(-4) }
+            new() { Name = "project-docs.docx", Path = "/Projects/project-docs.docx", IsDirectory = false, Size = 800 * 1024, LastModified = DateTime.Now.AddDays(-1), Provider = "GoogleDrive" }
         };
 
-        // Nested folders
-        _mockFileSystem["/Documents/Projects"] = new List<FileSystemItem>
+        _providerFileSystems["GoogleDrive"] = googleDrive;
+    }
+
+    private void InitializeDropboxFiles()
+    {
+        var dropbox = new Dictionary<string, List<FileSystemItem>>();
+        
+        dropbox["/"] = new List<FileSystemItem>
         {
-            new() { Name = "project1.docx", Path = "/Documents/Projects/project1.docx", IsDirectory = false, Size = 800 * 1024, LastModified = DateTime.Now.AddDays(-1) }
+            new() { Name = "Photos", Path = "/Photos", IsDirectory = true, LastModified = DateTime.Now.AddDays(-2), Provider = "Dropbox" },
+            new() { Name = "backup.zip", Path = "/backup.zip", IsDirectory = false, Size = (long)(2.5 * 1024 * 1024), LastModified = DateTime.Now.AddHours(-12), Provider = "Dropbox" }
         };
 
-        _mockFileSystem["/Pictures/Vacation"] = new List<FileSystemItem>
+        dropbox["/Photos"] = new List<FileSystemItem>
         {
-            new() { Name = "beach.jpg", Path = "/Pictures/Vacation/beach.jpg", IsDirectory = false, Size = (long)(2.5 * 1024 * 1024), LastModified = DateTime.Now.AddDays(-5) }
+            new() { Name = "vacation.jpg", Path = "/Photos/vacation.jpg", IsDirectory = false, Size = 500 * 1024, LastModified = DateTime.Now.AddDays(-2), Provider = "Dropbox" }
         };
 
-        _mockFileSystem["/Work/Meetings"] = new List<FileSystemItem>
+        _providerFileSystems["Dropbox"] = dropbox;
+    }
+
+    private void InitializeUnifiedView()
+    {
+        _mockFileSystem["/"] = new List<FileSystemItem>();
+        
+        // Combine root items from all providers
+        foreach (var (provider, fileSystem) in _providerFileSystems)
         {
-            new() { Name = "notes.txt", Path = "/Work/Meetings/notes.txt", IsDirectory = false, Size = 50 * 1024, LastModified = DateTime.Now.AddHours(-2) }
-        };
+            if (fileSystem.TryGetValue("/", out var rootItems))
+            {
+                _mockFileSystem["/"].AddRange(rootItems);
+            }
+        }
+
+        // Add items from each provider's folders
+        foreach (var (provider, fileSystem) in _providerFileSystems)
+        {
+            foreach (var (path, items) in fileSystem.Where(kvp => kvp.Key != "/"))
+            {
+                _mockFileSystem[path] = items;
+            }
+        }
     }
 
     private void LoadCurrentFolder()
     {
         Items.Clear();
-        if (_mockFileSystem.TryGetValue(CurrentPath, out var folderContents))
+        
+        if (IsUnifiedView)
         {
-            foreach (var item in folderContents.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.Name))
+            if (_mockFileSystem.TryGetValue(CurrentPath, out var items))
+            {
+                foreach (var item in items.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.Name))
+                {
+                    Items.Add(item);
+                }
+            }
+        }
+        else if (!string.IsNullOrEmpty(CurrentProvider) && 
+                 _providerFileSystems.TryGetValue(CurrentProvider, out var providerSystem) &&
+                 providerSystem.TryGetValue(CurrentPath, out var providerItems))
+        {
+            foreach (var item in providerItems.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.Name))
             {
                 Items.Add(item);
             }
         }
+
         UpdateBreadcrumbs();
+    }
+
+    public void SetProvider(string provider)
+    {
+        if (_providerFileSystems.ContainsKey(provider))
+        {
+            CurrentProvider = provider;
+            CurrentPath = "/";
+            LoadCurrentFolder();
+        }
     }
 
     private void UpdateBreadcrumbs()
     {
         BreadcrumbItems.Clear();
-        BreadcrumbItems.Add(("Home", "/"));
+        
+        if (!IsUnifiedView && !string.IsNullOrEmpty(CurrentProvider))
+        {
+            BreadcrumbItems.Add((CurrentProvider, "/"));
+        }
+        else
+        {
+            BreadcrumbItems.Add(("Home", "/"));
+        }
 
         if (CurrentPath == "/") return;
 
