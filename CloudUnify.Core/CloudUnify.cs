@@ -4,27 +4,54 @@ public class CloudUnify {
     private readonly List<ICloudProvider> _cloudProviders = new();
 
     public void RegisterProvider(ICloudProvider provider) {
+        System.Diagnostics.Debug.WriteLine($"Registering provider: {provider.Name} (ID: {provider.Id})");
         _cloudProviders.Add(provider);
     }
 
     public void UnregisterProvider(string providerId) {
+        System.Diagnostics.Debug.WriteLine($"Unregistering provider with ID: {providerId}");
         var provider = _cloudProviders.Find(p => p.Id == providerId);
-        if (provider != null) _cloudProviders.Remove(provider);
+        if (provider != null) {
+            _cloudProviders.Remove(provider);
+            System.Diagnostics.Debug.WriteLine($"Provider {provider.Name} unregistered");
+        }
+        else {
+            System.Diagnostics.Debug.WriteLine($"Provider with ID {providerId} not found for unregistering");
+        }
     }
 
-    public async Task<List<UnifiedCloudFile>> ListAllFilesAsync(string path = "/") {
+    public List<ICloudProvider> GetProviders()
+    {
+        return new List<ICloudProvider>(_cloudProviders);
+    }
+
+    public async Task<List<UnifiedCloudFile>> ListAllFilesAsync(string path = "/")
+    {
         var allFiles = new List<UnifiedCloudFile>();
+        System.Diagnostics.Debug.WriteLine($"Listing all files from {_cloudProviders.Count} providers");
 
         foreach (var provider in _cloudProviders)
-            try {
+        {
+            try
+            {
+                if (!provider.IsConnected)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Provider {provider.Name} is not connected, skipping");
+                    continue;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Listing files from provider {provider.Name} (ID: {provider.Id})");
                 var files = await provider.ListFilesAsync(path);
+                System.Diagnostics.Debug.WriteLine($"Found {files.Count} files from provider {provider.Name}");
                 allFiles.AddRange(files);
             }
-            catch (Exception ex) {
-                // Log the error but continue with other providers
-                Console.WriteLine($"Error listing files from {provider.Name}: {ex.Message}");
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error listing files from {provider.Name}: {ex}");
             }
+        }
 
+        System.Diagnostics.Debug.WriteLine($"Total files found: {allFiles.Count}");
         return allFiles;
     }
 

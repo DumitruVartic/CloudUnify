@@ -1,219 +1,285 @@
-using System.Collections.ObjectModel;
+using CloudUnify.Core;
+using CloudUnify.Core.Models;
+using CloudUnify.Core.Storage;
 using CloudUnify.Maui.Models;
+using System.Collections.ObjectModel;
 
 namespace CloudUnify.Maui.ViewModels;
 
-public class FileSystemViewModel
+public class FileSystemViewModel : BaseViewModel
 {
-    private Dictionary<string, List<FileSystemItem>> _mockFileSystem;
-    private Dictionary<string, Dictionary<string, List<FileSystemItem>>> _providerFileSystems;
-    public ObservableCollection<FileSystemItem> Items { get; set; }
-    public string CurrentPath { get; private set; }
-    public bool IsGridView { get; set; } = true;
-    public bool IsMultiSelect { get; set; }
-    public bool IsUnifiedView { get; set; }
-    public string CurrentProvider { get; private set; }
-    public IEnumerable<FileSystemItem> SelectedItems => Items.Where(i => i.IsSelected);
-    public List<(string Name, string Path)> BreadcrumbItems { get; private set; }
+    private readonly FileSystemService _fileSystemService;
+    private readonly CloudUnifyManager _cloudUnifyManager;
+    private string _currentPath = "/";
+    private string? _currentProviderId;
+    private bool _isUnifiedView = true;
+    private bool _isGridView = true;
+    private bool _isMultiSelect;
+    private ObservableCollection<FileSystemItem> _items;
+    private List<(string Name, string Path)> _breadcrumbItems;
+    private List<FileSystemItem> _selectedItems;
+    private ObservableCollection<StorageProviderInfo> _availableProviders;
 
-    public FileSystemViewModel()
+    public FileSystemViewModel(FileSystemService fileSystemService, CloudUnifyManager cloudUnifyManager)
     {
-        CurrentPath = "/";
-        Items = new ObservableCollection<FileSystemItem>();
-        BreadcrumbItems = new List<(string Name, string Path)>();
-        InitializeMockFileSystem();
-        LoadCurrentFolder();
-    }
-
-    private void InitializeMockFileSystem()
-    {
-        _mockFileSystem = new Dictionary<string, List<FileSystemItem>>();
-        _providerFileSystems = new Dictionary<string, Dictionary<string, List<FileSystemItem>>>();
-
-        // Initialize provider-specific file systems
-        InitializeOneDriveFiles();
-        InitializeGoogleDriveFiles();
-        InitializeDropboxFiles();
-
-        // Initialize unified view
-        InitializeUnifiedView();
-    }
-
-    private void InitializeOneDriveFiles()
-    {
-        var oneDrive = new Dictionary<string, List<FileSystemItem>>();
+        _fileSystemService = fileSystemService;
+        _cloudUnifyManager = cloudUnifyManager;
+        _items = new ObservableCollection<FileSystemItem>();
+        _breadcrumbItems = new List<(string Name, string Path)>();
+        _selectedItems = new List<FileSystemItem>();
+        _availableProviders = new ObservableCollection<StorageProviderInfo>();
         
-        oneDrive["/"] = new List<FileSystemItem>
-        {
-            new() { Name = "Documents", Path = "/Documents", IsDirectory = true, LastModified = DateTime.Now.AddDays(-1), Provider = "OneDrive" },
-            new() { Name = "report.pdf", Path = "/report.pdf", IsDirectory = false, Size = 1024 * 1024, LastModified = DateTime.Now.AddHours(-2), Provider = "OneDrive" }
-        };
-
-        oneDrive["/Documents"] = new List<FileSystemItem>
-        {
-            new() { Name = "presentation.pptx", Path = "/Documents/presentation.pptx", IsDirectory = false, Size = 2L * 1024 * 1024, LastModified = DateTime.Now.AddHours(-1), Provider = "OneDrive" }
-        };
-
-        _providerFileSystems["OneDrive"] = oneDrive;
+        LoadProvidersAsync().ConfigureAwait(false);
     }
 
-    private void InitializeGoogleDriveFiles()
+    public ObservableCollection<StorageProviderInfo> AvailableProviders
     {
-        var googleDrive = new Dictionary<string, List<FileSystemItem>>();
-        
-        googleDrive["/"] = new List<FileSystemItem>
-        {
-            new() { Name = "Projects", Path = "/Projects", IsDirectory = true, LastModified = DateTime.Now.AddDays(-3), Provider = "GoogleDrive" },
-            new() { Name = "spreadsheet.xlsx", Path = "/spreadsheet.xlsx", IsDirectory = false, Size = (long)(1.5 * 1024 * 1024), LastModified = DateTime.Now.AddHours(-4), Provider = "GoogleDrive" }
-        };
-
-        googleDrive["/Projects"] = new List<FileSystemItem>
-        {
-            new() { Name = "project-docs.docx", Path = "/Projects/project-docs.docx", IsDirectory = false, Size = 800 * 1024, LastModified = DateTime.Now.AddDays(-1), Provider = "GoogleDrive" }
-        };
-
-        _providerFileSystems["GoogleDrive"] = googleDrive;
+        get => _availableProviders;
+        set => SetProperty(ref _availableProviders, value);
     }
 
-    private void InitializeDropboxFiles()
+    public string? CurrentProviderId
     {
-        var dropbox = new Dictionary<string, List<FileSystemItem>>();
-        
-        dropbox["/"] = new List<FileSystemItem>
+        get => _currentProviderId;
+        set
         {
-            new() { Name = "Photos", Path = "/Photos", IsDirectory = true, LastModified = DateTime.Now.AddDays(-2), Provider = "Dropbox" },
-            new() { Name = "backup.zip", Path = "/backup.zip", IsDirectory = false, Size = (long)(2.5 * 1024 * 1024), LastModified = DateTime.Now.AddHours(-12), Provider = "Dropbox" }
-        };
-
-        dropbox["/Photos"] = new List<FileSystemItem>
-        {
-            new() { Name = "vacation.jpg", Path = "/Photos/vacation.jpg", IsDirectory = false, Size = 500 * 1024, LastModified = DateTime.Now.AddDays(-2), Provider = "Dropbox" }
-        };
-
-        _providerFileSystems["Dropbox"] = dropbox;
-    }
-
-    private void InitializeUnifiedView()
-    {
-        _mockFileSystem["/"] = new List<FileSystemItem>();
-        
-        // Combine root items from all providers
-        foreach (var (provider, fileSystem) in _providerFileSystems)
-        {
-            if (fileSystem.TryGetValue("/", out var rootItems))
+            if (value != null && !AvailableProviders.Any(p => p.ProviderId == value))
             {
-                _mockFileSystem["/"].AddRange(rootItems);
+                System.Diagnostics.Debug.WriteLine($"Attempted to set invalid provider ID: {value}");
+                return;
             }
-        }
 
-        // Add items from each provider's folders
-        foreach (var (provider, fileSystem) in _providerFileSystems)
-        {
-            foreach (var (path, items) in fileSystem.Where(kvp => kvp.Key != "/"))
+            if (SetProperty(ref _currentProviderId, value))
             {
-                _mockFileSystem[path] = items;
+                LoadCurrentFolder();
+                UpdateBreadcrumbs();
             }
         }
     }
 
-    private void LoadCurrentFolder()
+    public ObservableCollection<FileSystemItem> Items
     {
-        Items.Clear();
-        
-        if (IsUnifiedView)
-        {
-            if (_mockFileSystem.TryGetValue(CurrentPath, out var items))
-            {
-                foreach (var item in items.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.Name))
-                {
-                    Items.Add(item);
-                }
-            }
-        }
-        else if (!string.IsNullOrEmpty(CurrentProvider) && 
-                 _providerFileSystems.TryGetValue(CurrentProvider, out var providerSystem) &&
-                 providerSystem.TryGetValue(CurrentPath, out var providerItems))
-        {
-            foreach (var item in providerItems.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.Name))
-            {
-                Items.Add(item);
-            }
-        }
+        get => _items;
+        set => SetProperty(ref _items, value);
+    }
 
+    public List<(string Name, string Path)> BreadcrumbItems
+    {
+        get => _breadcrumbItems;
+        set => SetProperty(ref _breadcrumbItems, value);
+    }
+
+    public List<FileSystemItem> SelectedItems
+    {
+        get => _selectedItems;
+        set => SetProperty(ref _selectedItems, value);
+    }
+
+    public string CurrentPath
+    {
+        get => _currentPath;
+        set => SetProperty(ref _currentPath, value);
+    }
+
+    public bool IsUnifiedView
+    {
+        get => _isUnifiedView;
+        set
+        {
+            if (SetProperty(ref _isUnifiedView, value))
+            {
+                _currentProviderId = null;
+                LoadCurrentFolder();
+                UpdateBreadcrumbs();
+            }
+        }
+    }
+
+    public bool IsGridView
+    {
+        get => _isGridView;
+        set => SetProperty(ref _isGridView, value);
+    }
+
+    public bool IsMultiSelect
+    {
+        get => _isMultiSelect;
+        set => SetProperty(ref _isMultiSelect, value);
+    }
+
+    private async Task LoadProvidersAsync()
+    {
+        try
+        {
+            var providers = await _cloudUnifyManager.GetConnectedProvidersAsync();
+            AvailableProviders.Clear();
+            foreach (var provider in providers)
+            {
+                AvailableProviders.Add(provider);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading providers: {ex}");
+        }
+    }
+
+    public async Task ConnectProviderAsync(StorageProvider providerType)
+    {
+        try
+        {
+            var success = await _cloudUnifyManager.ConnectProviderAsync(providerType);
+            if (success)
+            {
+                await LoadProvidersAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error connecting provider: {ex}");
+        }
+    }
+
+    public async Task DisconnectProviderAsync(string providerId)
+    {
+        try
+        {
+            await _cloudUnifyManager.DisconnectProviderAsync(providerId, "default_user");
+            await LoadProvidersAsync();
+            if (_currentProviderId == providerId)
+            {
+                _currentProviderId = null;
+                LoadCurrentFolder();
+                UpdateBreadcrumbs();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error disconnecting provider: {ex}");
+        }
+    }
+
+    public async Task NavigateToFolder(string path, string? providerId = null)
+    {
+        CurrentPath = path;
+        _currentProviderId = providerId;
+        
+        await LoadCurrentFolder();
         UpdateBreadcrumbs();
-    }
-
-    public void SetProvider(string provider)
-    {
-        if (_providerFileSystems.ContainsKey(provider))
-        {
-            CurrentProvider = provider;
-            CurrentPath = "/";
-            LoadCurrentFolder();
-        }
     }
 
     private void UpdateBreadcrumbs()
     {
-        BreadcrumbItems.Clear();
+        var newBreadcrumbs = new List<(string Name, string Path)>();
         
-        if (!IsUnifiedView && !string.IsNullOrEmpty(CurrentProvider))
+        if (!IsUnifiedView && _currentProviderId != null)
         {
-            BreadcrumbItems.Add((CurrentProvider, "/"));
+            var provider = AvailableProviders.FirstOrDefault(p => p.ProviderId == _currentProviderId);
+            newBreadcrumbs.Add((provider?.AccountName ?? _currentProviderId, "/"));
         }
         else
         {
-            BreadcrumbItems.Add(("Home", "/"));
+            newBreadcrumbs.Add(("Home", "/"));
         }
 
-        if (CurrentPath == "/") return;
-
-        var parts = CurrentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var currentPath = "";
-        foreach (var part in parts)
-        {
-            currentPath += "/" + part;
-            BreadcrumbItems.Add((part, currentPath));
-        }
-    }
-
-    public void NavigateToFolder(string path)
-    {
-        if (_mockFileSystem.ContainsKey(path))
-        {
-            CurrentPath = path;
-            LoadCurrentFolder();
-            ClearSelection();
-        }
-    }
-
-    public void NavigateUp()
-    {
         if (CurrentPath != "/")
         {
-            var parentPath = Path.GetDirectoryName(CurrentPath)?.Replace("\\", "/") ?? "/";
-            NavigateToFolder(parentPath);
+            var parts = CurrentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var currentPath = "";
+            foreach (var part in parts)
+            {
+                currentPath += "/" + part;
+                newBreadcrumbs.Add((part, currentPath));
+            }
         }
+
+        BreadcrumbItems = newBreadcrumbs;
+    }
+
+    public async Task LoadCurrentFolder()
+    {
+        try
+        {
+            IsBusy = true;
+
+            if (_currentProviderId != null)
+            {
+                var provider = AvailableProviders.FirstOrDefault(p => p.ProviderId == _currentProviderId);
+                if (provider == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Provider {_currentProviderId} not found in available providers");
+                    return;
+                }
+                System.Diagnostics.Debug.WriteLine($"Loading files for provider: {provider.AccountName} ({_currentProviderId})");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Loading files in unified view");
+            }
+
+            var files = await _cloudUnifyManager.ListAllFilesAsync(CurrentPath);
+            System.Diagnostics.Debug.WriteLine($"Found {files.Count} files from CloudUnifyManager");
+
+            if (_currentProviderId != null)
+            {
+                files = files.Where(f => f.ProviderId == _currentProviderId).ToList();
+                System.Diagnostics.Debug.WriteLine($"Filtered to {files.Count} files for provider {_currentProviderId}");
+            }
+            
+            Items.Clear();
+            foreach (var file in files)
+            {
+                System.Diagnostics.Debug.WriteLine($"Adding file: {file.Name} (Provider: {file.ProviderName})");
+                Items.Add(new FileSystemItem
+                {
+                    Id = file.Id,
+                    Name = file.Name,
+                    Path = file.Path,
+                    Size = file.Size,
+                    CreatedAt = file.CreatedAt,
+                    ModifiedAt = file.ModifiedAt,
+                    IsFolder = file.IsFolder,
+                    Provider = file.ProviderName,
+                    MimeType = file.MimeType
+                });
+            }
+            System.Diagnostics.Debug.WriteLine($"Added {Items.Count} items to the view");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading folder: {ex}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task NavigateUp()
+    {
+        if (CurrentPath == "/") return;
+        
+        var parentPath = Path.GetDirectoryName(CurrentPath)?.Replace("\\", "/") ?? "/";
+        await NavigateToFolder(parentPath, _currentProviderId);
     }
 
     public void ToggleItemSelection(FileSystemItem item)
     {
-        if (!IsMultiSelect)
+        if (_selectedItems.Contains(item))
         {
-            foreach (var i in Items.Where(i => i != item))
-            {
-                i.IsSelected = false;
-            }
+            _selectedItems.Remove(item);
         }
-        item.IsSelected = !item.IsSelected;
+        else
+        {
+            _selectedItems.Add(item);
+        }
+        OnPropertyChanged(nameof(SelectedItems));
     }
 
     public void ClearSelection()
     {
-        foreach (var item in Items)
-        {
-            item.IsSelected = false;
-        }
+        _selectedItems.Clear();
+        OnPropertyChanged(nameof(SelectedItems));
     }
 
     public void ToggleViewMode()
@@ -221,48 +287,74 @@ public class FileSystemViewModel
         IsGridView = !IsGridView;
     }
 
-    public void DeleteSelected()
+    public async Task DeleteSelected()
     {
-        var selectedItems = Items.Where(i => i.IsSelected).ToList();
-        foreach (var item in selectedItems)
+        foreach (var item in _selectedItems.ToList())
         {
-            Items.Remove(item);
-            // In a real implementation, we would also update _mockFileSystem
+            try
+            {
+                await _fileSystemService.DeleteAsync(item.Id, item.Provider);
+                Items.Remove(item);
+                _selectedItems.Remove(item);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error deleting file {item.Name}: {ex}");
+            }
+        }
+        OnPropertyChanged(nameof(SelectedItems));
+    }
+
+    public async Task CreateNewFolder(string name)
+    {
+        try
+        {
+            if (_currentProviderId == null)
+            {
+                return;
+            }
+
+            var folder = await _fileSystemService.CreateFolderAsync(name, CurrentPath, _currentProviderId);
+            Items.Add(new FileSystemItem
+            {
+                Id = folder.Id,
+                Name = folder.Name,
+                Path = folder.Path,
+                IsFolder = true,
+                Provider = folder.ProviderName
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error creating folder: {ex}");
         }
     }
 
-    public void CreateNewFolder(string name)
+    public async Task RenameItem(FileSystemItem item, string newName)
     {
-        if (string.IsNullOrWhiteSpace(name)) return;
-
-        var newPath = Path.Combine(CurrentPath, name).Replace("\\", "/");
-        var newFolder = new FileSystemItem
+        try
         {
-            Name = name,
-            Path = newPath,
-            IsDirectory = true,
-            LastModified = DateTime.Now
-        };
-
-        Items.Add(newFolder);
-        _mockFileSystem[CurrentPath].Add(newFolder);
-        _mockFileSystem[newPath] = new List<FileSystemItem>();
-    }
-
-    public void RenameItem(FileSystemItem item, string newName)
-    {
-        if (string.IsNullOrWhiteSpace(newName)) return;
-        
-        var existingItem = Items.FirstOrDefault(i => i == item);
-        if (existingItem != null)
+            var renamedFile = await _fileSystemService.RenameAsync(item.Id, newName, item.Provider);
+            var index = Items.IndexOf(item);
+            if (index != -1)
+            {
+                Items[index] = new FileSystemItem
+                {
+                    Id = renamedFile.Id,
+                    Name = renamedFile.Name,
+                    Path = renamedFile.Path,
+                    Size = renamedFile.Size,
+                    CreatedAt = renamedFile.CreatedAt,
+                    ModifiedAt = renamedFile.ModifiedAt,
+                    IsFolder = renamedFile.IsFolder,
+                    Provider = renamedFile.ProviderName,
+                    MimeType = renamedFile.MimeType
+                };
+            }
+        }
+        catch (Exception ex)
         {
-            var oldPath = existingItem.Path;
-            var newPath = Path.Combine(Path.GetDirectoryName(existingItem.Path) ?? "/", newName).Replace("\\", "/");
-            
-            existingItem.Name = newName;
-            existingItem.Path = newPath;
-
-            // In a real implementation, we would also update _mockFileSystem
+            System.Diagnostics.Debug.WriteLine($"Error renaming file {item.Name}: {ex}");
         }
     }
-} 
+}

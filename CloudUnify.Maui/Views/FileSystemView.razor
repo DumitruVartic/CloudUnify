@@ -1,9 +1,11 @@
 @page "/filesystem"
 @using CloudUnify.Maui.ViewModels
 @using CloudUnify.Maui.Models
+@using CloudUnify.Core.Models
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
+@inject FileSystemViewModel ViewModel
 
 <div class="file-system-container">
     <div class="toolbar">
@@ -36,8 +38,28 @@
                 </button>
             </div>
         </div>
+        <div class="provider-selector @(ViewModel.IsUnifiedView ? "hidden" : "")">
+            <div class="provider-list">
+                @foreach (var provider in ViewModel.AvailableProviders)
+                {
+                    <button class="provider-button @(provider.ProviderId == ViewModel.CurrentProviderId ? "active" : "")"
+                            @onclick="@(() => ViewModel.CurrentProviderId = provider.ProviderId)">
+                        <i class="bi bi-@GetProviderIcon(provider.ProviderType)"></i>
+                        <div class="provider-info">
+                            <span class="provider-name">@provider.AccountName</span>
+                            <span class="provider-storage">@FormatFileSize(provider.UsedSpace) / @FormatFileSize(provider.TotalSpace)</span>
+                        </div>
+                    </button>
+                }
+                <button class="provider-button add-provider" @onclick="ShowAddProviderDialog">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Add Provider</span>
+                </button>
+            </div>
+        </div>
         <div class="actions">
-            <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())">
+            <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())"
+                    disabled="@(ViewModel.IsUnifiedView || ViewModel.CurrentProviderId == null)">
                 <i class="bi bi-folder-plus"></i>
                 <span>New Folder</span>
             </button>
@@ -58,41 +80,77 @@
     </div>
 
     <div class="content-area">
-        <div class="@(ViewModel.IsGridView ? "file-grid" : "file-list")">
-            @foreach (var item in ViewModel.Items)
-            {
-                <div class="file-item @(item.IsSelected ? "selected" : "")" 
-                     @onclick="@(() => OnItemClick(item))"
-                     @oncontextmenu="@(e => ShowContextMenu(e, item))"
-                     @oncontextmenu:preventDefault="true">
-                    <div class="file-icon">
-                        <i class="bi bi-@item.Icon"></i>
-                        @if (ViewModel.IsMultiSelect)
-                        {
-                            <div class="selection-overlay">
-                                <i class="bi bi-@(item.IsSelected ? "check-circle-fill" : "circle")"></i>
-                            </div>
-                        }
-                        @if (!string.IsNullOrEmpty(item.Provider))
-                        {
-                            <div class="provider-indicator" style="background-color: @item.ProviderColor">
-                                <i class="bi bi-@item.ProviderIconClass"></i>
-                            </div>
-                        }
-                    </div>
-                    <div class="file-details">
-                        <div class="file-name" title="@item.Name">@item.Name</div>
-                        <div class="file-info">
-                            @if (!item.IsDirectory)
+        @if (ViewModel.IsBusy)
+        {
+            <div class="loading-overlay">
+                <div class="spinner"></div>
+                <span>Loading...</span>
+            </div>
+        }
+        else if (!ViewModel.Items.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-folder2-open"></i>
+                <h3>This folder is empty</h3>
+                @if (!ViewModel.IsUnifiedView && ViewModel.CurrentProviderId != null)
+                {
+                    <p>Upload files or create a new folder to get started</p>
+                    <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())">
+                        <i class="bi bi-folder-plus"></i>
+                        <span>New Folder</span>
+                    </button>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="@(ViewModel.IsGridView ? "file-grid" : "file-list")">
+                @foreach (var item in ViewModel.Items)
+                {
+                    <div class="file-item @(item.IsSelected ? "selected" : "")" 
+                         @onclick="@(() => OnItemClick(item))"
+                         @oncontextmenu="@(e => ShowContextMenu(e, item))"
+                         @oncontextmenu:preventDefault="true">
+                        <div class="file-icon">
+                            @if (item.IsFolder)
                             {
-                                <span>@FormatFileSize(item.Size)</span>
+                                <i class="bi bi-folder-fill"></i>
                             }
-                            <span>@item.LastModified.ToString("MMM d, yyyy")</span>
+                            else
+                            {
+                                <i class="bi bi-@GetFileIcon(item)"></i>
+                            }
+                            @if (ViewModel.IsMultiSelect)
+                            {
+                                <div class="selection-overlay">
+                                    <i class="bi bi-@(item.IsSelected ? "check-circle-fill" : "circle")"></i>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(item.Provider) && !ViewModel.IsUnifiedView)
+                            {
+                                <div class="provider-indicator" style="background-color: @GetProviderColor(item.Provider)">
+                                    <i class="bi bi-@GetProviderIcon(item.Provider)"></i>
+                                </div>
+                            }
+                        </div>
+                        <div class="file-details">
+                            <div class="file-name" title="@item.Name">@item.Name</div>
+                            <div class="file-info">
+                                @if (!item.IsFolder)
+                                {
+                                    <span class="file-size">@FormatFileSize(item.Size)</span>
+                                }
+                                <span class="file-date">@item.ModifiedAt.ToString("MMM d, yyyy")</span>
+                                @if (ViewModel.IsUnifiedView)
+                                {
+                                    <span class="file-provider">@item.Provider</span>
+                                }
+                            </div>
                         </div>
                     </div>
-                </div>
-            }
-        </div>
+                }
+            </div>
+        }
     </div>
 
     @if (_showNewFolderDialog)
@@ -136,6 +194,53 @@
             <div class="context-menu-item" @onclick="@(() => DeleteItems(new[] { _contextMenuItem }))">
                 <i class="bi bi-trash"></i>
                 <span>Delete</span>
+            </div>
+        </div>
+    }
+
+    @if (_showAddProviderDialog)
+    {
+        <div class="modal-backdrop" @onclick="@(() => _showAddProviderDialog = false)">
+            <div class="modal-dialog" @onclick:stopPropagation="true">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Add Storage Provider</h3>
+                        <button class="close-button" @onclick="@(() => _showAddProviderDialog = false)">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="provider-options">
+                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.GoogleDrive))">
+                                <div class="provider-icon google">
+                                    <i class="bi bi-google"></i>
+                                </div>
+                                <div class="provider-info">
+                                    <span class="provider-name">Google Drive</span>
+                                    <span class="provider-description">Connect your Google Drive account</span>
+                                </div>
+                            </button>
+                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.OneDrive))">
+                                <div class="provider-icon onedrive">
+                                    <i class="bi bi-microsoft"></i>
+                                </div>
+                                <div class="provider-info">
+                                    <span class="provider-name">OneDrive</span>
+                                    <span class="provider-description">Connect your Microsoft OneDrive account</span>
+                                </div>
+                            </button>
+                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.Dropbox))">
+                                <div class="provider-icon dropbox">
+                                    <i class="bi bi-dropbox"></i>
+                                </div>
+                                <div class="provider-info">
+                                    <span class="provider-name">Dropbox</span>
+                                    <span class="provider-description">Connect your Dropbox account</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     }
@@ -245,6 +350,56 @@
         flex: 1;
         overflow: auto;
         padding: 20px;
+        position: relative;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #1a73e8;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px;
+        color: #5f6368;
+        text-align: center;
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+        margin: 0;
+        margin-bottom: 8px;
+        color: #3c4043;
+    }
+
+    .empty-state p {
+        margin: 0;
+        margin-bottom: 16px;
     }
 
     .file-grid {
@@ -257,6 +412,28 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+
+    .file-list .file-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 16px;
+    }
+
+    .file-list .file-icon {
+        margin-right: 16px;
+    }
+
+    .file-list .file-details {
+        flex: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .file-list .file-info {
+        display: flex;
+        gap: 24px;
     }
 
     .file-item {
@@ -286,27 +463,20 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 8px;
+        font-size: 24px;
+        color: #5f6368;
     }
 
-    .file-list .file-icon {
-        margin-bottom: 0;
-        margin-right: 12px;
+    .file-icon i {
+        transition: all 0.2s;
     }
 
-    .selection-overlay {
-        position: absolute;
-        top: -8px;
-        left: -8px;
-        color: #1a73e8;
-        background: white;
-        border-radius: 50%;
+    .file-item:hover .file-icon i {
+        transform: scale(1.1);
     }
 
     .file-details {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
+        margin-top: 12px;
     }
 
     .file-name {
@@ -318,10 +488,28 @@
     }
 
     .file-info {
-        font-size: 0.75rem;
+        margin-top: 4px;
+        font-size: 12px;
         color: #5f6368;
         display: flex;
-        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .file-size {
+        color: #1a73e8;
+    }
+
+    .file-provider {
+        padding: 2px 6px;
+        background-color: #f1f3f4;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+    @* Escape the @ symbol for CSS @keyframes in Razor *@
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
     .modal-backdrop {
@@ -490,11 +678,144 @@
     .provider-indicator i {
         font-size: 8px;
     }
+
+    .provider-selector {
+        padding: 8px 0;
+        border-bottom: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+    }
+
+    .provider-selector.hidden {
+        display: none;
+    }
+
+    .provider-list {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 0 24px;
+    }
+
+    .provider-button {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        min-width: 200px;
+        transition: all 0.2s;
+    }
+
+    .provider-button:hover {
+        background-color: #f8f9fa;
+        border-color: #dadce0;
+    }
+
+    .provider-button.active {
+        background-color: #e8f0fe;
+        border-color: #1a73e8;
+    }
+
+    .provider-button i {
+        font-size: 1.5em;
+        color: #5f6368;
+    }
+
+    .provider-info {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .provider-name {
+        font-weight: 500;
+        color: #3c4043;
+    }
+
+    .provider-storage {
+        font-size: 0.75rem;
+        color: #5f6368;
+    }
+
+    .add-provider {
+        border-style: dashed;
+    }
+
+    .provider-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .provider-option {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+        text-align: left;
+    }
+
+    .provider-option:hover {
+        background-color: #f8f9fa;
+        border-color: #1a73e8;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .provider-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+    }
+
+    .provider-icon.google {
+        background-color: #4285F4;
+    }
+
+    .provider-icon.onedrive {
+        background-color: #0078D4;
+    }
+
+    .provider-icon.dropbox {
+        background-color: #0061FF;
+    }
+
+    .provider-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .provider-name {
+        font-weight: 500;
+        color: #3c4043;
+        font-size: 1rem;
+    }
+
+    .provider-description {
+        color: #5f6368;
+        font-size: 0.875rem;
+    }
 </style>
 
 @code {
-    private FileSystemViewModel ViewModel { get; set; } = new();
     private bool _showNewFolderDialog;
+    private bool _showAddProviderDialog;
     private string _newFolderName;
     private FileSystemItem _contextMenuItem;
     private double _contextMenuX;
@@ -511,6 +832,25 @@
                 StateHasChanged();
             }
         });
+    }
+
+    private string GetProviderIcon(StorageProvider provider) => provider switch
+    {
+        StorageProvider.GoogleDrive => "google",
+        StorageProvider.OneDrive => "microsoft",
+        StorageProvider.Dropbox => "dropbox",
+        _ => "cloud"
+    };
+
+    private void ShowAddProviderDialog()
+    {
+        _showAddProviderDialog = true;
+    }
+
+    private async Task ConnectProvider(StorageProvider provider)
+    {
+        await ViewModel.ConnectProviderAsync(provider);
+        _showAddProviderDialog = false;
     }
 
     private void OnItemClick(FileSystemItem item)
@@ -582,4 +922,39 @@
 
         return $"{size:0.##} {sizes[order]}";
     }
+
+    private string GetFileIcon(FileSystemItem item)
+    {
+        if (item.IsFolder) return "folder-fill";
+        
+        return item.Extension?.ToLowerInvariant() switch
+        {
+            ".pdf" => "file-pdf",
+            ".doc" or ".docx" => "file-word",
+            ".xls" or ".xlsx" => "file-excel",
+            ".ppt" or ".pptx" => "file-ppt",
+            ".txt" => "file-text",
+            ".jpg" or ".jpeg" or ".png" or ".gif" => "file-image",
+            ".mp3" or ".wav" or ".ogg" => "file-music",
+            ".mp4" or ".avi" or ".mkv" => "file-play",
+            ".zip" or ".rar" or ".7z" => "file-zip",
+            _ => "file"
+        };
+    }
+
+    private string GetProviderColor(string provider) => provider?.ToLowerInvariant() switch
+    {
+        "google drive" => "#4285F4",
+        "onedrive" => "#0078D4",
+        "dropbox" => "#0061FF",
+        _ => "#6c757d"
+    };
+
+    private string GetProviderIcon(string provider) => provider?.ToLowerInvariant() switch
+    {
+        "google drive" => "google",
+        "onedrive" => "microsoft",
+        "dropbox" => "dropbox",
+        _ => "cloud"
+    };
 } 

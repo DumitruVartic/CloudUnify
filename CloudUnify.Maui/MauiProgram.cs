@@ -2,6 +2,7 @@
 using CloudUnify.Core.Interfaces;
 using CloudUnify.Core.Storage;
 using CloudUnify.Maui.Services;
+using CloudUnify.Maui.ViewModels;
 using Microsoft.Extensions.Logging;
 
 namespace CloudUnify.Maui;
@@ -23,8 +24,15 @@ public static class MauiProgram {
         // Register CloudUnify services
         var appDataPath = Path.Combine(FileSystem.AppDataDirectory, "providers.json");
         builder.Services.AddSingleton<IProviderStorage>(sp => new ProviderStorage(appDataPath));
-        builder.Services.AddScoped<CloudUnifyManager>();
+        builder.Services.AddSingleton<CloudUnifyManager>();
         builder.Services.AddSingleton<App>();
+
+        // Register CloudUnify core services
+        builder.Services.AddSingleton<Core.CloudUnify>();
+
+        // Register file system services
+        builder.Services.AddSingleton<FileSystemService>();
+        builder.Services.AddScoped<FileSystemViewModel>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

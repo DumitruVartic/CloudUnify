@@ -27,6 +27,7 @@ public class CloudUnifyManager {
         try {
             // Generate a new provider ID if not provided
             providerId ??= Guid.NewGuid().ToString();
+            System.Diagnostics.Debug.WriteLine($"Connecting Google Drive with ID: {providerId}");
 
             var authHelper = new GoogleAuthProvider(
                 clientSecretsPath,
@@ -42,16 +43,26 @@ public class CloudUnifyManager {
             var connected = await provider.ConnectAsync(accessToken);
 
             if (connected) {
+                System.Diagnostics.Debug.WriteLine($"Provider {providerId} connected successfully");
                 _providers[providerId] = provider;
                 _cloudUnify.RegisterProvider(provider);
                 _providerStorage.SaveProvider(providerId, "GoogleDrive", provider.Name, userId, clientSecretsPath);
+
+                // Verify registration
+                var providers = _cloudUnify.GetProviders();
+                System.Diagnostics.Debug.WriteLine($"CloudUnify now has {providers.Count} providers");
+                foreach (var p in providers) {
+                    System.Diagnostics.Debug.WriteLine($"- Provider: {p.Name} (ID: {p.Id})");
+                }
+
                 return (providerId, true);
             }
 
+            System.Diagnostics.Debug.WriteLine($"Provider {providerId} failed to connect");
             return (providerId, false);
         }
         catch (Exception ex) {
-            Console.WriteLine($"Error connecting to Google Drive: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Error connecting to Google Drive: {ex}");
             return (providerId ?? string.Empty, false);
         }
     }
@@ -223,40 +234,90 @@ public class CloudUnifyManager {
         }
     }
 
-    public async Task<bool> ConnectProviderAsync(StorageProvider providerType) {
-        try {
-            var providerId = Guid.NewGuid().ToString();
-            var userId = "default_user"; // TODO: Get actual user ID from authentication
+    public async Task<bool> ConnectProviderAsync(StorageProvider providerType)
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine($"Attempting to connect provider: {providerType}");
+            
+            var clientSecretsPath = GetClientSecretsPath(providerType);
+            if (string.IsNullOrEmpty(clientSecretsPath))
+            {
+                System.Diagnostics.Debug.WriteLine("Client secrets path not found");
+                return false;
+            }
 
-            switch (providerType) {
+            var userId = "default_user"; // We'll use a default user for now
+            bool success = false;
+            string? providerId = null;
+
+            switch (providerType)
+            {
                 case StorageProvider.GoogleDrive:
-                    var (_, success) = await ConnectGoogleDriveAsync(
-                        "client_secrets.json", // TODO: Get from configuration
+                    (providerId, success) = await ConnectGoogleDriveAsync(
+                        clientSecretsPath,
                         ApplicationName,
                         TokenStorePath,
-                        userId,
-                        providerId
+                        userId
                     );
-                    return success;
+                    break;
 
                 case StorageProvider.OneDrive:
-                    var (_, oneDriveSuccess) = await ConnectOneDriveAsync(
-                        "client_secrets.json", // TODO: Get from configuration
+                    (providerId, success) = await ConnectOneDriveAsync(
+                        clientSecretsPath,
                         ApplicationName,
                         TokenStorePath,
-                        userId,
-                        providerId
+                        userId
                     );
-                    return oneDriveSuccess;
-
-                default:
-                    return false;
+                    break;
             }
+
+            if (success && providerId != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"Provider connected successfully. ID: {providerId}");
+                // Verify provider registration
+                if (_providers.ContainsKey(providerId))
+                {
+                    var provider = _providers[providerId];
+                    System.Diagnostics.Debug.WriteLine($"Provider exists in _providers dictionary: {provider.Name}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Warning: Provider not found in _providers dictionary");
+                }
+
+                // Verify CloudUnify registration
+                var cloudUnifyProviders = await ListAllFilesAsync("/");
+                System.Diagnostics.Debug.WriteLine($"CloudUnify has {cloudUnifyProviders.Select(f => f.ProviderId).Distinct().Count()} registered providers");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Provider connection failed");
+            }
+
+            return success;
         }
-        catch (Exception ex) {
-            Console.WriteLine($"Error connecting to provider: {ex.Message}");
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error connecting provider: {ex}");
             return false;
         }
+    }
+
+    private string GetClientSecretsPath(StorageProvider providerType)
+    {
+        // For development, we'll look for client_secrets.json in the application directory
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var fileName = providerType switch
+        {
+            StorageProvider.GoogleDrive => "client_secrets_google.json",
+            StorageProvider.OneDrive => "client_secrets_onedrive.json",
+            _ => "client_secrets.json"
+        };
+
+        var path = Path.Combine(baseDir, fileName);
+        System.Diagnostics.Debug.WriteLine($"Looking for client secrets at: {path}");
+        return File.Exists(path) ? path : string.Empty;
     }
 
     public async Task<IEnumerable<StorageProviderInfo>> GetConnectedProvidersAsync() {

@@ -4,22 +4,26 @@ namespace CloudUnify.Maui.Models;
 
 public class FileSystemItem
 {
+    public string Id { get; set; }
     public string Name { get; set; }
     public string Path { get; set; }
-    public bool IsDirectory { get; set; }
+    public bool IsFolder { get; set; }
+    public bool IsDirectory => IsFolder;  // For backward compatibility
     public long Size { get; set; }
-    public DateTime LastModified { get; set; }
-    public string Extension => IsDirectory ? null : System.IO.Path.GetExtension(Name)?.ToLowerInvariant();
+    public DateTime CreatedAt { get; set; }
+    public DateTime ModifiedAt { get; set; }
+    public DateTime LastModified => ModifiedAt;  // For backward compatibility
+    public string Provider { get; set; }
+    public string MimeType { get; set; }
     public bool IsSelected { get; set; }
-    public string Provider { get; set; } // e.g., "OneDrive", "GoogleDrive", "Dropbox"
+    public string Extension => IsFolder ? null : System.IO.Path.GetExtension(Name)?.ToLowerInvariant();
     public string ProviderIconClass => GetProviderIconClass();
     public string ProviderColor => GetProviderColor();
-    
     public string Icon => GetFileIcon();
     
     private string GetFileIcon()
     {
-        if (IsDirectory) return "folder-fill";
+        if (IsFolder) return "folder-fill";
         
         return Extension switch
         {
