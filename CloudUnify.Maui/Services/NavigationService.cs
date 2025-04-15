@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.Components;
-
 namespace CloudUnify.Maui.Services;
+
+using Microsoft.AspNetCore.Components;
 
 public class NavigationService {
     private readonly NavigationManager _navigationManager;
@@ -14,23 +14,28 @@ public class NavigationService {
     }
 
     public async Task NavigateToWelcomeAsync() {
-        await Task.Run(() => _navigationManager.NavigateTo("/"));
+        _navigationManager.NavigateTo("/");
+        await Task.CompletedTask;
     }
 
     public async Task NavigateToAddStorageAsync() {
-        await Task.Run(() => _navigationManager.NavigateTo("/add-storage"));
+        _navigationManager.NavigateTo("/add-storage");
+        await Task.CompletedTask;
     }
 
     public async Task NavigateToStoragesAsync() {
-        await Task.Run(() => _navigationManager.NavigateTo("/storages"));
+        _navigationManager.NavigateTo("/storages");
+        await Task.CompletedTask;
     }
 
     public async Task NavigateBackAsync() {
-        await Task.Run(() => _navigationManager.NavigateTo(".."));
+        _navigationManager.NavigateTo(_navigationManager.BaseUri);
+        await Task.CompletedTask;
     }
 
     public async Task NavigateToAsync(string path) {
-        await Task.Run(() => _navigationManager.NavigateTo(path));
+        _navigationManager.NavigateTo(path);
+        await Task.CompletedTask;
     }
 
     // Synchronous methods for backward compatibility
@@ -47,7 +52,7 @@ public class NavigationService {
     }
 
     public void NavigateBack() {
-        _navigationManager.NavigateTo("..");
+        _navigationManager.NavigateTo(_navigationManager.BaseUri);
     }
 
     public void NavigateTo(string path) {

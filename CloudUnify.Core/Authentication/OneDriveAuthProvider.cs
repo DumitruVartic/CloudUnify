@@ -106,7 +106,8 @@ public class OneDriveAuthProvider : IAuthProvider {
 
             // Ensure directory exists before saving
             var tokenDirectory = Path.GetDirectoryName(tokenFilePath);
-            if (!string.IsNullOrEmpty(tokenDirectory) && !Directory.Exists(tokenDirectory)) Directory.CreateDirectory(tokenDirectory);
+            if (!string.IsNullOrEmpty(tokenDirectory) && !Directory.Exists(tokenDirectory))
+                Directory.CreateDirectory(tokenDirectory);
 
             // Save the token data for future use
             await File.WriteAllTextAsync(tokenFilePath, responseContent);
@@ -163,7 +164,8 @@ public class OneDriveAuthProvider : IAuthProvider {
         private TaskCompletionSource<string>? _codeReceived;
         private HttpListener? _listener;
 
-        public async Task<string> ReceiveCodeAsync(string redirectUri, string clientId, CancellationToken cancellationToken) {
+        public async Task<string> ReceiveCodeAsync(string redirectUri, string clientId,
+            CancellationToken cancellationToken) {
             _codeReceived = new TaskCompletionSource<string>();
 
             Console.WriteLine($"Starting local server on {redirectUri}");

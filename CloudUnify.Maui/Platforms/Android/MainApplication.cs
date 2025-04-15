@@ -1,7 +1,4 @@
-﻿using Android.App;
-using Android.Runtime;
-
-namespace CloudUnify.Maui;
+﻿namespace CloudUnify.Maui;
 
 [Application]
 public class MainApplication : MauiApplication {

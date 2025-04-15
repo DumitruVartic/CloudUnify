@@ -103,14 +103,24 @@ public class CloudUnifyManager {
     }
 
     public async Task DisconnectProviderAsync(string providerId, string userId) {
-        if (!_providers.TryGetValue(providerId, out var provider)) throw new ArgumentException($"Provider with ID {providerId} not found");
+        // First update the connection state in storage
+        _providerStorage.UpdateConnectionState(providerId, false);
 
-        await provider.DisconnectAsync();
+        // Then try to disconnect the provider if it exists in the dictionary
+        if (_providers.TryGetValue(providerId, out var provider)) {
+            await provider.DisconnectAsync();
 
-        if (_authHelpers.TryGetValue(providerId, out var authHelperObj)) {
-            if (authHelperObj is GoogleAuthProvider GoogleAuthProvider)
-                await GoogleAuthProvider.RevokeTokenAsync(userId);
-            else if (authHelperObj is OneDriveAuthProvider oneDriveAuthHelper) await oneDriveAuthHelper.RevokeTokenAsync(userId);
+            if (_authHelpers.TryGetValue(providerId, out var authHelperObj)) {
+                if (authHelperObj is GoogleAuthProvider GoogleAuthProvider)
+                    await GoogleAuthProvider.RevokeTokenAsync(userId);
+                else if (authHelperObj is OneDriveAuthProvider oneDriveAuthHelper)
+                    await oneDriveAuthHelper.RevokeTokenAsync(userId);
+            }
+
+            // Remove from dictionaries
+            _providers.Remove(providerId);
+            _authHelpers.Remove(providerId);
+            _cloudUnify.UnregisterProvider(providerId);
         }
     }
 
@@ -174,8 +184,6 @@ public class CloudUnifyManager {
 
         foreach (var provider in connectedProviders) {
             if (string.IsNullOrEmpty(provider.UserId)) continue;
-
-            if (!HasProvider(provider.Id)) continue;
 
             try {
                 var clientSecretsPath = provider.ClientSecretsPath;
@@ -283,5 +291,81 @@ public class CloudUnifyManager {
             throw new ArgumentException($"No connected provider found for type {providerType}");
 
         await DisconnectProviderAsync(providerId, "default_user"); // TODO: Get actual user ID from authentication
+    }
+
+    public async Task<bool> ReconnectProviderAsync(string providerId) {
+        try {
+            var provider = _providerStorage.GetProvider(providerId);
+            if (provider == null) {
+                Console.WriteLine($"Provider with ID {providerId} not found");
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(provider.ClientSecretsPath)) {
+                Console.WriteLine($"Client secrets path is missing for provider {providerId}");
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(provider.UserId)) {
+                Console.WriteLine($"User ID is missing for provider {providerId}");
+                return false;
+            }
+
+            bool success;
+            if (provider.Type == "GoogleDrive") {
+                var (_, connected) = await ConnectGoogleDriveAsync(
+                    provider.ClientSecretsPath,
+                    ApplicationName,
+                    TokenStorePath,
+                    provider.UserId,
+                    provider.Id
+                );
+                success = connected;
+            }
+            else if (provider.Type == "OneDrive") {
+                var (_, connected) = await ConnectOneDriveAsync(
+                    provider.ClientSecretsPath,
+                    ApplicationName,
+                    TokenStorePath,
+                    provider.UserId,
+                    provider.Id
+                );
+                success = connected;
+            }
+            else {
+                Console.WriteLine($"Unknown provider type: {provider.Type}");
+                return false;
+            }
+
+            _providerStorage.UpdateConnectionState(providerId, success);
+            return success;
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error reconnecting provider: {ex.Message}");
+            _providerStorage.UpdateConnectionState(providerId, false);
+            return false;
+        }
+    }
+
+    public async Task RemoveProviderAsync(string providerId) {
+        try {
+            // First disconnect the provider if it's connected
+            if (_providers.ContainsKey(providerId)) {
+                await DisconnectProviderAsync(providerId,
+                    "default_user"); // TODO: Get actual user ID from authentication
+                _providers.Remove(providerId);
+                _cloudUnify.UnregisterProvider(providerId);
+            }
+
+            // Remove auth helper if it exists
+            if (_authHelpers.ContainsKey(providerId)) _authHelpers.Remove(providerId);
+
+            // Remove from storage
+            _providerStorage.RemoveProvider(providerId);
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error removing provider {providerId}: {ex.Message}");
+            throw;
+        }
     }
 }

@@ -197,7 +197,8 @@ public class OneDriveProvider : ICloudProvider {
                 var parentContent = await parentResponse.Content.ReadAsStringAsync();
                 var parentItem = JsonSerializer.Deserialize<JsonElement>(parentContent);
 
-                if (!parentItem.TryGetProperty("id", out var id)) throw new InvalidOperationException("Could not get parent folder ID");
+                if (!parentItem.TryGetProperty("id", out var id))
+                    throw new InvalidOperationException("Could not get parent folder ID");
 
                 parentId = id.GetString();
             }
@@ -237,7 +238,8 @@ public class OneDriveProvider : ICloudProvider {
             var fileContent = await fileResponse.Content.ReadAsStringAsync();
             var fileItem = JsonSerializer.Deserialize<JsonElement>(fileContent);
 
-            if (!fileItem.TryGetProperty("name", out var fileName)) throw new InvalidOperationException("Could not get file name");
+            if (!fileItem.TryGetProperty("name", out var fileName))
+                throw new InvalidOperationException("Could not get file name");
 
             // Get the parent folder ID for the new path
             string parentId;
@@ -252,7 +254,8 @@ public class OneDriveProvider : ICloudProvider {
                 var parentContent = await parentResponse.Content.ReadAsStringAsync();
                 var parentItem = JsonSerializer.Deserialize<JsonElement>(parentContent);
 
-                if (!parentItem.TryGetProperty("id", out var id)) throw new InvalidOperationException("Could not get parent folder ID");
+                if (!parentItem.TryGetProperty("id", out var id))
+                    throw new InvalidOperationException("Could not get parent folder ID");
 
                 parentId = id.GetString();
             }
@@ -275,7 +278,8 @@ public class OneDriveProvider : ICloudProvider {
             if (response.StatusCode == HttpStatusCode.Accepted) {
                 // Get the location header to check the status
                 var monitorUrl = response.Headers.Location?.ToString();
-                if (string.IsNullOrEmpty(monitorUrl)) throw new InvalidOperationException("Copy operation started but no monitor URL was provided");
+                if (string.IsNullOrEmpty(monitorUrl))
+                    throw new InvalidOperationException("Copy operation started but no monitor URL was provided");
 
                 // Wait for the copy to complete (with timeout)
                 var timeout = DateTime.Now.AddMinutes(5);

@@ -13,7 +13,8 @@ public class ProviderStorage : IProviderStorage {
         LoadProviders();
     }
 
-    public void SaveProvider(string providerId, string providerType, string name, string? userId = null, string? clientSecretsPath = null) {
+    public void SaveProvider(string providerId, string providerType, string name, string? userId = null,
+        string? clientSecretsPath = null) {
         if (_providers.TryGetValue(providerId, out var existingProvider)) {
             // Update existing provider
             existingProvider.Name = name;

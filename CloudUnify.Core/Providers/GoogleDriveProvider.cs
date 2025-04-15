@@ -69,7 +69,8 @@ public class GoogleDriveProvider : ICloudProvider {
         // List files in the folder
         var request = _driveService.Files.List();
         request.Q = parentId != null ? $"'{parentId}' in parents and trashed = false" : "trashed = false";
-        request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents)";
+        request.Fields =
+            "files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents)";
         request.PageSize = 1000;
 
         var result = await request.ExecuteAsync();
@@ -159,7 +160,8 @@ public class GoogleDriveProvider : ICloudProvider {
 
         // Move file
         var updateRequest = _driveService.Files.Update(new File(), fileId);
-        updateRequest.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
+        updateRequest.Fields =
+            "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
 
         // Remove old parents and add new parent
         updateRequest.RemoveParents = string.Join(",", file.Parents);
@@ -209,7 +211,8 @@ public class GoogleDriveProvider : ICloudProvider {
         };
 
         var updateRequest = _driveService.Files.Update(fileMetadata, fileId);
-        updateRequest.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
+        updateRequest.Fields =
+            "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents";
 
         var updatedFile = await updateRequest.ExecuteAsync();
         var path = await GetPathFromFileIdAsync(fileId);

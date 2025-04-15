@@ -7,6 +7,11 @@ public class CloudUnify {
         _cloudProviders.Add(provider);
     }
 
+    public void UnregisterProvider(string providerId) {
+        var provider = _cloudProviders.Find(p => p.Id == providerId);
+        if (provider != null) _cloudProviders.Remove(provider);
+    }
+
     public async Task<List<UnifiedCloudFile>> ListAllFilesAsync(string path = "/") {
         var allFiles = new List<UnifiedCloudFile>();
 

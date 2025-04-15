@@ -103,7 +103,8 @@ internal class Program {
                 var clientSecretsPath = provider.ClientSecretsPath;
 
                 if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) {
-                    System.Console.WriteLine($"Warning: Client secrets file not found for provider '{provider.Name}'. Skipping.");
+                    System.Console.WriteLine(
+                        $"Warning: Client secrets file not found for provider '{provider.Name}'. Skipping.");
                     continue;
                 }
 
@@ -195,7 +196,8 @@ internal class Program {
 
         try {
             System.Console.WriteLine("Initiating OAuth2 flow. A browser window will open for authentication...");
-            System.Console.WriteLine("Important: Make sure you have the following redirect URIs in your Google Cloud Console:");
+            System.Console.WriteLine(
+                "Important: Make sure you have the following redirect URIs in your Google Cloud Console:");
             System.Console.WriteLine("- http://localhost");
             System.Console.WriteLine("- http://127.0.0.1");
             System.Console.WriteLine("- http://localhost:PORT (where PORT is any port number, e.g., 8080)");
@@ -221,14 +223,18 @@ internal class Program {
             if (ex.InnerException != null) System.Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
 
             System.Console.WriteLine("\nTroubleshooting tips:");
-            System.Console.WriteLine("1. Make sure your client_secret.json is valid and contains the correct credentials");
+            System.Console.WriteLine(
+                "1. Make sure your client_secret.json is valid and contains the correct credentials");
             System.Console.WriteLine("2. Add these redirect URIs to your Google Cloud Console:");
             System.Console.WriteLine("   - http://localhost");
             System.Console.WriteLine("   - http://127.0.0.1");
             System.Console.WriteLine("   - http://localhost:PORT (where PORT is any port number, e.g., 8080)");
-            System.Console.WriteLine("3. For desktop applications, use OAuth client ID of type 'Desktop app' instead of 'Web application'");
-            System.Console.WriteLine("4. Check that your application has the necessary API access enabled in Google Cloud Console");
-            System.Console.WriteLine("5. Remember that changes to OAuth settings can take up to a few hours to propagate");
+            System.Console.WriteLine(
+                "3. For desktop applications, use OAuth client ID of type 'Desktop app' instead of 'Web application'");
+            System.Console.WriteLine(
+                "4. Check that your application has the necessary API access enabled in Google Cloud Console");
+            System.Console.WriteLine(
+                "5. Remember that changes to OAuth settings can take up to a few hours to propagate");
             System.Console.WriteLine("6. Try deleting the token_store directory to force a new authentication");
         }
     }
@@ -258,7 +264,8 @@ internal class Program {
 
         try {
             System.Console.WriteLine("Initiating OAuth2 flow. A browser window will open for authentication...");
-            System.Console.WriteLine("Important: Make sure you have the following redirect URIs in your Microsoft Azure Portal:");
+            System.Console.WriteLine(
+                "Important: Make sure you have the following redirect URIs in your Microsoft Azure Portal:");
             System.Console.WriteLine("- http://localhost");
             System.Console.WriteLine("- http://127.0.0.1");
             System.Console.WriteLine("- http://localhost:PORT (where PORT is any port number, e.g., 8080)");
@@ -284,13 +291,16 @@ internal class Program {
             if (ex.InnerException != null) System.Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
 
             System.Console.WriteLine("\nTroubleshooting tips:");
-            System.Console.WriteLine("1. Make sure your client_secret.json is valid and contains the correct credentials");
+            System.Console.WriteLine(
+                "1. Make sure your client_secret.json is valid and contains the correct credentials");
             System.Console.WriteLine("2. Add these redirect URIs to your Microsoft Azure Portal:");
             System.Console.WriteLine("   - http://localhost");
             System.Console.WriteLine("   - http://127.0.0.1");
             System.Console.WriteLine("   - http://localhost:PORT (where PORT is any port number, e.g., 8080)");
-            System.Console.WriteLine("3. Check that your application has the necessary API permissions enabled in Azure Portal");
-            System.Console.WriteLine("4. Remember that changes to OAuth settings can take up to a few hours to propagate");
+            System.Console.WriteLine(
+                "3. Check that your application has the necessary API permissions enabled in Azure Portal");
+            System.Console.WriteLine(
+                "4. Remember that changes to OAuth settings can take up to a few hours to propagate");
             System.Console.WriteLine("5. Try deleting the token_store directory to force a new authentication");
         }
     }
@@ -339,7 +349,8 @@ internal class Program {
             System.Console.WriteLine($"{i + 1}. {connectedProviders[i].Name} ({connectedProviders[i].Id})");
 
         System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > connectedProviders.Count) {
+        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 ||
+            providerIndex > connectedProviders.Count) {
             System.Console.WriteLine("Invalid selection.");
             return;
         }
@@ -388,7 +399,8 @@ internal class Program {
             System.Console.WriteLine($"{i + 1}. {connectedProviders[i].Name} ({connectedProviders[i].Id})");
 
         System.Console.Write("Select a provider (number): ");
-        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 || providerIndex > connectedProviders.Count) {
+        if (!int.TryParse(System.Console.ReadLine(), out var providerIndex) || providerIndex < 1 ||
+            providerIndex > connectedProviders.Count) {
             System.Console.WriteLine("Invalid selection.");
             return;
         }
