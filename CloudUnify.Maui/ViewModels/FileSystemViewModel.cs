@@ -2,14 +2,14 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using CloudUnify.Core;
 using CloudUnify.Core.Models;
-using CloudUnify.Core.Storage;
 using CloudUnify.Maui.Models;
+using CloudUnify.Maui.Services;
 
 namespace CloudUnify.Maui.ViewModels;
 
 public class FileSystemViewModel : BaseViewModel {
     private readonly CloudUnifyManager _cloudUnifyManager;
-    private readonly FileSystemService _fileSystemService;
+    private readonly CloudFileSystemService _fileSystemService;
     private ObservableCollection<StorageProviderInfo> _availableProviders;
     private List<(string Name, string Path)> _breadcrumbItems;
     private string _currentPath = "/";
@@ -19,7 +19,7 @@ public class FileSystemViewModel : BaseViewModel {
     private ObservableCollection<FileSystemItem> _items;
     private List<FileSystemItem> _selectedItems;
 
-    public FileSystemViewModel(FileSystemService fileSystemService, CloudUnifyManager cloudUnifyManager) {
+    public FileSystemViewModel(CloudFileSystemService fileSystemService, CloudUnifyManager cloudUnifyManager) {
         _fileSystemService = fileSystemService;
         _cloudUnifyManager = cloudUnifyManager;
         _items = new ObservableCollection<FileSystemItem>();
@@ -117,11 +117,17 @@ public class FileSystemViewModel : BaseViewModel {
     }
 
     public async Task NavigateToFolder(string path, string? providerId = null) {
-        CurrentPath = path;
-        _currentProviderId = providerId;
+        try {
+            CurrentPath = path;
+            if (providerId != null) _currentProviderId = providerId;
 
-        await LoadCurrentFolder();
-        UpdateBreadcrumbs();
+            await LoadCurrentFolder();
+            UpdateBreadcrumbs();
+        }
+        catch (Exception ex) {
+            Debug.WriteLine($"Error navigating to folder: {ex}");
+            // Consider showing an error message to the user here
+        }
     }
 
     private void UpdateBreadcrumbs() {
@@ -148,8 +154,11 @@ public class FileSystemViewModel : BaseViewModel {
     }
 
     public async Task LoadCurrentFolder() {
+        if (IsBusy) return; // Prevent multiple concurrent loads
+
         try {
             IsBusy = true;
+            Items.Clear(); // Clear items immediately to show loading state
 
             if (_currentProviderId != null) {
                 var provider = AvailableProviders.FirstOrDefault(p => p.ProviderId == _currentProviderId);
@@ -172,7 +181,6 @@ public class FileSystemViewModel : BaseViewModel {
                 Debug.WriteLine($"Filtered to {files.Count} files for provider {_currentProviderId}");
             }
 
-            Items.Clear();
             foreach (var file in files) {
                 Debug.WriteLine($"Adding file: {file.Name} (Provider: {file.ProviderName})");
                 Items.Add(new FileSystemItem {
@@ -192,6 +200,7 @@ public class FileSystemViewModel : BaseViewModel {
         }
         catch (Exception ex) {
             Debug.WriteLine($"Error loading folder: {ex}");
+            // Consider showing an error message to the user here
         }
         finally {
             IsBusy = false;
@@ -274,5 +283,12 @@ public class FileSystemViewModel : BaseViewModel {
         catch (Exception ex) {
             Debug.WriteLine($"Error renaming file {item.Name}: {ex}");
         }
+    }
+
+    public async Task SwitchToUnifiedView() {
+        _currentProviderId = null;
+        CurrentPath = "/";
+        await LoadCurrentFolder();
+        UpdateBreadcrumbs();
     }
 }

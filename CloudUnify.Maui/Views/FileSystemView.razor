@@ -26,6 +26,15 @@
         </div>
         <div class="provider-selector">
             <div class="provider-list">
+                <button
+                    class="provider-button @(ViewModel.CurrentProviderId == null ? "active" : "")"
+                    @onclick="@(() => ViewModel.SwitchToUnifiedView())">
+                    <i class="bi bi-collection"></i>
+                    <div class="provider-info">
+                        <span class="provider-name">All Providers</span>
+                        <span class="provider-storage">Unified View</span>
+                    </div>
+                </button>
                 @foreach (var provider in ViewModel.AvailableProviders) {
                     <button
                         class="provider-button @(provider.ProviderId == ViewModel.CurrentProviderId ? "active" : "")"

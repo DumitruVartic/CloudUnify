@@ -28,25 +28,31 @@ public class CloudUnify {
 
     public async Task<List<UnifiedCloudFile>> ListAllFilesAsync(string path = "/") {
         var allFiles = new List<UnifiedCloudFile>();
-        Debug.WriteLine($"Listing all files from {_cloudProviders.Count} providers");
+        Debug.WriteLine($"[CloudUnify] Listing all files from {_cloudProviders.Count} providers at path: {path}");
 
         foreach (var provider in _cloudProviders)
             try {
                 if (!provider.IsConnected) {
-                    Debug.WriteLine($"Provider {provider.Name} is not connected, skipping");
+                    Debug.WriteLine($"[CloudUnify] Provider {provider.Name} is not connected, skipping");
                     continue;
                 }
 
-                Debug.WriteLine($"Listing files from provider {provider.Name} (ID: {provider.Id})");
+                Debug.WriteLine($"[CloudUnify] Listing files from provider {provider.Name} (ID: {provider.Id})");
                 var files = await provider.ListFilesAsync(path);
-                Debug.WriteLine($"Found {files.Count} files from provider {provider.Name}");
+                Debug.WriteLine($"[CloudUnify] Found {files.Count} files from provider {provider.Name}");
+
+                foreach (var file in files)
+                    Debug.WriteLine(
+                        $"[CloudUnify] - {(file.IsFolder ? "Folder" : "File")}: {file.Name} (ID: {file.Id})");
+
                 allFiles.AddRange(files);
             }
             catch (Exception ex) {
-                Debug.WriteLine($"Error listing files from {provider.Name}: {ex}");
+                Debug.WriteLine($"[CloudUnify] Error listing files from {provider.Name}: {ex}");
+                Debug.WriteLine($"[CloudUnify] Stack trace: {ex.StackTrace}");
             }
 
-        Debug.WriteLine($"Total files found: {allFiles.Count}");
+        Debug.WriteLine($"[CloudUnify] Total files found across all providers: {allFiles.Count}");
         return allFiles;
     }
 

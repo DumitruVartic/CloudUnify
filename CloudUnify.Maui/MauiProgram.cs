@@ -31,7 +31,7 @@ public static class MauiProgram {
         builder.Services.AddSingleton<Core.CloudUnify>();
 
         // Register file system services
-        builder.Services.AddSingleton<FileSystemService>();
+        builder.Services.AddSingleton<CloudFileSystemService>();
         builder.Services.AddScoped<FileSystemViewModel>();
 
 #if DEBUG

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
@@ -55,15 +56,24 @@ public class GoogleDriveProvider : ICloudProvider {
         var files = new List<UnifiedCloudFile>();
         string? parentId = null;
 
+        Debug.WriteLine($"[GoogleDriveProvider] Listing files at path: {path}");
+
         // If path is not root, find the folder ID
         if (path != "/" && path != "root") {
+            Debug.WriteLine($"[GoogleDriveProvider] Finding folder ID for path: {path}");
             var pathParts = path.Trim('/').Split('/');
             parentId = await GetFolderIdFromPathAsync(pathParts);
 
-            if (parentId == null) throw new DirectoryNotFoundException($"Path not found: {path}");
+            if (parentId == null) {
+                Debug.WriteLine($"[GoogleDriveProvider] Path not found: {path}");
+                throw new DirectoryNotFoundException($"Path not found: {path}");
+            }
+
+            Debug.WriteLine($"[GoogleDriveProvider] Found folder ID: {parentId}");
         }
         else if (path == "root" || path == "/") {
             parentId = "root";
+            Debug.WriteLine("[GoogleDriveProvider] Using root folder");
         }
 
         // List files in the folder
@@ -73,10 +83,19 @@ public class GoogleDriveProvider : ICloudProvider {
             "files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink, thumbnailLink, parents)";
         request.PageSize = 1000;
 
+        Debug.WriteLine($"[GoogleDriveProvider] Executing list request with query: {request.Q}");
         var result = await request.ExecuteAsync();
+        Debug.WriteLine($"[GoogleDriveProvider] Found {result.Files.Count} files");
 
-        foreach (var file in result.Files) files.Add(MapToUnifiedCloudFile(file, path));
+        foreach (var file in result.Files) {
+            Debug.WriteLine($"[GoogleDriveProvider] Processing file: {file.Name} (ID: {file.Id})");
+            var unifiedFile = MapToUnifiedCloudFile(file, path);
+            Debug.WriteLine(
+                $"[GoogleDriveProvider] Mapped to unified file: {unifiedFile.Name} (IsFolder: {unifiedFile.IsFolder})");
+            files.Add(unifiedFile);
+        }
 
+        Debug.WriteLine($"[GoogleDriveProvider] Returning {files.Count} files");
         return files;
     }
 
