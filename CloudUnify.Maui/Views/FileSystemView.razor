@@ -1,7 +1,7 @@
 @page "/filesystem"
-@using CloudUnify.Maui.ViewModels
-@using CloudUnify.Maui.Models
 @using CloudUnify.Core.Models
+@using CloudUnify.Maui.Models
+@using CloudUnify.Maui.ViewModels
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
@@ -11,27 +11,25 @@
     <div class="toolbar">
         <div class="toolbar-main">
             <div class="breadcrumb-container">
-                @foreach (var (name, path) in ViewModel.BreadcrumbItems)
-                {
+                @foreach (var (name, path) in ViewModel.BreadcrumbItems) {
                     <span class="breadcrumb-item">
-                        <a @onclick="@(() => ViewModel.NavigateToFolder(path))" 
+                        <a @onclick="@(() => ViewModel.NavigateToFolder(path))"
                            class="@(path == ViewModel.CurrentPath ? "active" : "")">
                             @name
                         </a>
                     </span>
-                    @if (path != ViewModel.CurrentPath)
-                    {
+                    @if (path != ViewModel.CurrentPath) {
                         <span class="breadcrumb-separator">/</span>
                     }
                 }
             </div>
             <div class="view-toggle">
-                <button class="action-button @(!ViewModel.IsUnifiedView ? "active" : "")" 
+                <button class="action-button @(!ViewModel.IsUnifiedView ? "active" : "")"
                         @onclick="@(() => ViewModel.IsUnifiedView = false)">
                     <i class="bi bi-folder2"></i>
                     <span>Provider View</span>
                 </button>
-                <button class="action-button @(ViewModel.IsUnifiedView ? "active" : "")" 
+                <button class="action-button @(ViewModel.IsUnifiedView ? "active" : "")"
                         @onclick="@(() => ViewModel.IsUnifiedView = true)">
                     <i class="bi bi-collection"></i>
                     <span>Unified View</span>
@@ -40,14 +38,15 @@
         </div>
         <div class="provider-selector @(ViewModel.IsUnifiedView ? "hidden" : "")">
             <div class="provider-list">
-                @foreach (var provider in ViewModel.AvailableProviders)
-                {
-                    <button class="provider-button @(provider.ProviderId == ViewModel.CurrentProviderId ? "active" : "")"
-                            @onclick="@(() => ViewModel.CurrentProviderId = provider.ProviderId)">
+                @foreach (var provider in ViewModel.AvailableProviders) {
+                    <button
+                        class="provider-button @(provider.ProviderId == ViewModel.CurrentProviderId ? "active" : "")"
+                        @onclick="@(() => ViewModel.CurrentProviderId = provider.ProviderId)">
                         <i class="bi bi-@GetProviderIcon(provider.ProviderType)"></i>
                         <div class="provider-info">
                             <span class="provider-name">@provider.AccountName</span>
-                            <span class="provider-storage">@FormatFileSize(provider.UsedSpace) / @FormatFileSize(provider.TotalSpace)</span>
+                            <span
+                                class="provider-storage">@FormatFileSize(provider.UsedSpace) / @FormatFileSize(provider.TotalSpace)</span>
                         </div>
                     </button>
                 }
@@ -63,7 +62,7 @@
                 <i class="bi bi-folder-plus"></i>
                 <span>New Folder</span>
             </button>
-            <button class="action-button" @onclick="@(() => ViewModel.DeleteSelected())" 
+            <button class="action-button" @onclick="@(() => ViewModel.DeleteSelected())"
                     disabled="@(!ViewModel.SelectedItems.Any())">
                 <i class="bi bi-trash"></i>
                 <span>Delete</span>
@@ -80,20 +79,17 @@
     </div>
 
     <div class="content-area">
-        @if (ViewModel.IsBusy)
-        {
+        @if (ViewModel.IsBusy) {
             <div class="loading-overlay">
                 <div class="spinner"></div>
                 <span>Loading...</span>
             </div>
         }
-        else if (!ViewModel.Items.Any())
-        {
+        else if (!ViewModel.Items.Any()) {
             <div class="empty-state">
                 <i class="bi bi-folder2-open"></i>
                 <h3>This folder is empty</h3>
-                @if (!ViewModel.IsUnifiedView && ViewModel.CurrentProviderId != null)
-                {
+                @if (!ViewModel.IsUnifiedView && ViewModel.CurrentProviderId != null) {
                     <p>Upload files or create a new folder to get started</p>
                     <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())">
                         <i class="bi bi-folder-plus"></i>
@@ -102,33 +98,28 @@
                 }
             </div>
         }
-        else
-        {
+        else {
             <div class="@(ViewModel.IsGridView ? "file-grid" : "file-list")">
-                @foreach (var item in ViewModel.Items)
-                {
-                    <div class="file-item @(item.IsSelected ? "selected" : "")" 
+                @foreach (var item in ViewModel.Items) {
+                    <div class="file-item @(item.IsSelected ? "selected" : "")"
                          @onclick="@(() => OnItemClick(item))"
                          @oncontextmenu="@(e => ShowContextMenu(e, item))"
                          @oncontextmenu:preventDefault="true">
                         <div class="file-icon">
-                            @if (item.IsFolder)
-                            {
+                            @if (item.IsFolder) {
                                 <i class="bi bi-folder-fill"></i>
                             }
-                            else
-                            {
+                            else {
                                 <i class="bi bi-@GetFileIcon(item)"></i>
                             }
-                            @if (ViewModel.IsMultiSelect)
-                            {
+                            @if (ViewModel.IsMultiSelect) {
                                 <div class="selection-overlay">
                                     <i class="bi bi-@(item.IsSelected ? "check-circle-fill" : "circle")"></i>
                                 </div>
                             }
-                            @if (!string.IsNullOrEmpty(item.Provider) && !ViewModel.IsUnifiedView)
-                            {
-                                <div class="provider-indicator" style="background-color: @GetProviderColor(item.Provider)">
+                            @if (!string.IsNullOrEmpty(item.Provider) && !ViewModel.IsUnifiedView) {
+                                <div class="provider-indicator"
+                                     style="background-color: @GetProviderColor(item.Provider)">
                                     <i class="bi bi-@GetProviderIcon(item.Provider)"></i>
                                 </div>
                             }
@@ -136,13 +127,11 @@
                         <div class="file-details">
                             <div class="file-name" title="@item.Name">@item.Name</div>
                             <div class="file-info">
-                                @if (!item.IsFolder)
-                                {
+                                @if (!item.IsFolder) {
                                     <span class="file-size">@FormatFileSize(item.Size)</span>
                                 }
                                 <span class="file-date">@item.ModifiedAt.ToString("MMM d, yyyy")</span>
-                                @if (ViewModel.IsUnifiedView)
-                                {
+                                @if (ViewModel.IsUnifiedView) {
                                     <span class="file-provider">@item.Provider</span>
                                 }
                             </div>
@@ -153,8 +142,7 @@
         }
     </div>
 
-    @if (_showNewFolderDialog)
-    {
+    @if (_showNewFolderDialog) {
         <div class="modal-backdrop" @onclick="@(() => _showNewFolderDialog = false)">
             <div class="modal-dialog" @onclick:stopPropagation="true">
                 <div class="modal-content">
@@ -165,8 +153,10 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        <input type="text" @bind="_newFolderName" placeholder="Folder name" 
-                               @onkeyup="@(e => { if (e.Key == "Enter") CreateNewFolder(); })" />
+                        <input type="text" @bind="_newFolderName" placeholder="Folder name"
+                               @onkeyup="@(e => {
+                                             if (e.Key == "Enter") CreateNewFolder();
+                                         })"/>
                     </div>
                     <div class="modal-footer">
                         <button class="secondary" @onclick="@(() => _showNewFolderDialog = false)">Cancel</button>
@@ -177,11 +167,9 @@
         </div>
     }
 
-    @if (_contextMenuItem != null)
-    {
+    @if (_contextMenuItem != null) {
         <div class="context-menu" style="left: @(_contextMenuX)px; top: @(_contextMenuY)px">
-            @if (_contextMenuItem.IsDirectory)
-            {
+            @if (_contextMenuItem.IsDirectory) {
                 <div class="context-menu-item" @onclick="@(() => ViewModel.NavigateToFolder(_contextMenuItem.Path))">
                     <i class="bi bi-folder2-open"></i>
                     <span>Open</span>
@@ -198,8 +186,7 @@
         </div>
     }
 
-    @if (_showAddProviderDialog)
-    {
+    @if (_showAddProviderDialog) {
         <div class="modal-backdrop" @onclick="@(() => _showAddProviderDialog = false)">
             <div class="modal-dialog" @onclick:stopPropagation="true">
                 <div class="modal-content">
@@ -211,7 +198,8 @@
                     </div>
                     <div class="modal-body">
                         <div class="provider-options">
-                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.GoogleDrive))">
+                            <button class="provider-option"
+                                    @onclick="@(() => ConnectProvider(StorageProvider.GoogleDrive))">
                                 <div class="provider-icon google">
                                     <i class="bi bi-google"></i>
                                 </div>
@@ -220,7 +208,8 @@
                                     <span class="provider-description">Connect your Google Drive account</span>
                                 </div>
                             </button>
-                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.OneDrive))">
+                            <button class="provider-option"
+                                    @onclick="@(() => ConnectProvider(StorageProvider.OneDrive))">
                                 <div class="provider-icon onedrive">
                                     <i class="bi bi-microsoft"></i>
                                 </div>
@@ -229,7 +218,8 @@
                                     <span class="provider-description">Connect your Microsoft OneDrive account</span>
                                 </div>
                             </button>
-                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.Dropbox))">
+                            <button class="provider-option"
+                                    @onclick="@(() => ConnectProvider(StorageProvider.Dropbox))">
                                 <div class="provider-icon dropbox">
                                     <i class="bi bi-dropbox"></i>
                                 </div>
@@ -507,9 +497,14 @@
     }
 
     @* Escape the @ symbol for CSS @keyframes in Razor *@
+
     @@keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
     .modal-backdrop {
@@ -530,9 +525,9 @@
         border-radius: 8px;
         min-width: 400px;
         max-width: 90%;
-        box-shadow: 0 24px 38px 3px rgba(0,0,0,0.14), 
-                    0 9px 46px 8px rgba(0,0,0,0.12), 
-                    0 11px 15px -7px rgba(0,0,0,0.2);
+        box-shadow: 0 24px 38px 3px rgba(0, 0, 0, 0.14),
+        0 9px 46px 8px rgba(0, 0, 0, 0.12),
+        0 11px 15px -7px rgba(0, 0, 0, 0.2);
     }
 
     .modal-header {
@@ -619,7 +614,7 @@
         background: white;
         border-radius: 4px;
         min-width: 180px;
-        box-shadow: 0 2px 6px 2px rgba(60,64,67,0.15);
+        box-shadow: 0 2px 6px 2px rgba(60, 64, 67, 0.15);
         z-index: 1000;
     }
 
@@ -657,7 +652,7 @@
 
     .view-toggle .action-button.active {
         background-color: white;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .provider-indicator {
@@ -769,7 +764,7 @@
         background-color: #f8f9fa;
         border-color: #1a73e8;
         transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     .provider-icon {
@@ -821,101 +816,86 @@
     private double _contextMenuX;
     private double _contextMenuY;
 
-    protected override void OnInitialized()
-    {
+    protected override void OnInitialized() {
         // Close context menu when clicking outside
-        JSRuntime.InvokeVoidAsync("document.addEventListener", "click", () => 
-        {
-            if (_contextMenuItem != null)
-            {
+        JSRuntime.InvokeVoidAsync("document.addEventListener", "click", () => {
+            if (_contextMenuItem != null) {
                 _contextMenuItem = null;
                 StateHasChanged();
             }
         });
     }
 
-    private string GetProviderIcon(StorageProvider provider) => provider switch
-    {
-        StorageProvider.GoogleDrive => "google",
-        StorageProvider.OneDrive => "microsoft",
-        StorageProvider.Dropbox => "dropbox",
-        _ => "cloud"
-    };
+    private string GetProviderIcon(StorageProvider provider) {
+        return provider switch {
+            StorageProvider.GoogleDrive => "google",
+            StorageProvider.OneDrive => "microsoft",
+            StorageProvider.Dropbox => "dropbox",
+            _ => "cloud"
+        };
+    }
 
-    private void ShowAddProviderDialog()
-    {
+    private void ShowAddProviderDialog() {
         _showAddProviderDialog = true;
     }
 
-    private async Task ConnectProvider(StorageProvider provider)
-    {
+    private async Task ConnectProvider(StorageProvider provider) {
         await ViewModel.ConnectProviderAsync(provider);
         _showAddProviderDialog = false;
     }
 
-    private void OnItemClick(FileSystemItem item)
-    {
-        if (ViewModel.IsMultiSelect)
-        {
+    private void OnItemClick(FileSystemItem item) {
+        if (ViewModel.IsMultiSelect) {
             ViewModel.ToggleItemSelection(item);
         }
-        else if (item.IsDirectory)
-        {
+        else if (item.IsDirectory) {
             ViewModel.NavigateToFolder(item.Path);
         }
     }
 
-    private void ShowContextMenu(MouseEventArgs e, FileSystemItem item)
-    {
+    private void ShowContextMenu(MouseEventArgs e, FileSystemItem item) {
         _contextMenuItem = item;
         _contextMenuX = e.ClientX;
         _contextMenuY = e.ClientY;
         StateHasChanged();
     }
 
-    private void ShowNewFolderDialog()
-    {
+    private void ShowNewFolderDialog() {
         _newFolderName = "";
         _showNewFolderDialog = true;
     }
 
-    private void CreateNewFolder()
-    {
-        if (!string.IsNullOrWhiteSpace(_newFolderName))
-        {
+    private void CreateNewFolder() {
+        if (!string.IsNullOrWhiteSpace(_newFolderName)) {
             ViewModel.CreateNewFolder(_newFolderName);
             _showNewFolderDialog = false;
         }
     }
 
-    private async Task RenameItem(FileSystemItem item)
-    {
+    private async Task RenameItem(FileSystemItem item) {
         var newName = await JSRuntime.InvokeAsync<string>("prompt", "Enter new name:", item.Name);
-        if (!string.IsNullOrWhiteSpace(newName))
-        {
+        if (!string.IsNullOrWhiteSpace(newName)) {
             ViewModel.RenameItem(item, newName);
         }
+
         _contextMenuItem = null;
     }
 
-    private void DeleteItems(IEnumerable<FileSystemItem> items)
-    {
-        foreach (var item in items)
-        {
+    private void DeleteItems(IEnumerable<FileSystemItem> items) {
+        foreach (var item in items) {
             item.IsSelected = true;
         }
+
         ViewModel.DeleteSelected();
         _contextMenuItem = null;
     }
 
-    private string FormatFileSize(long bytes)
-    {
+    private string FormatFileSize(long bytes) {
         string[] sizes = { "B", "KB", "MB", "GB" };
-        int order = 0;
+        var order = 0;
         double size = bytes;
 
-        while (size >= 1024 && order < sizes.Length - 1)
-        {
+        while (size >= 1024 && order < sizes.Length - 1) {
             order++;
             size = size / 1024;
         }
@@ -923,12 +903,10 @@
         return $"{size:0.##} {sizes[order]}";
     }
 
-    private string GetFileIcon(FileSystemItem item)
-    {
+    private string GetFileIcon(FileSystemItem item) {
         if (item.IsFolder) return "folder-fill";
-        
-        return item.Extension?.ToLowerInvariant() switch
-        {
+
+        return item.Extension?.ToLowerInvariant() switch {
             ".pdf" => "file-pdf",
             ".doc" or ".docx" => "file-word",
             ".xls" or ".xlsx" => "file-excel",
@@ -942,19 +920,22 @@
         };
     }
 
-    private string GetProviderColor(string provider) => provider?.ToLowerInvariant() switch
-    {
-        "google drive" => "#4285F4",
-        "onedrive" => "#0078D4",
-        "dropbox" => "#0061FF",
-        _ => "#6c757d"
-    };
+    private string GetProviderColor(string provider) {
+        return provider?.ToLowerInvariant() switch {
+            "google drive" => "#4285F4",
+            "onedrive" => "#0078D4",
+            "dropbox" => "#0061FF",
+            _ => "#6c757d"
+        };
+    }
 
-    private string GetProviderIcon(string provider) => provider?.ToLowerInvariant() switch
-    {
-        "google drive" => "google",
-        "onedrive" => "microsoft",
-        "dropbox" => "dropbox",
-        _ => "cloud"
-    };
+    private string GetProviderIcon(string provider) {
+        return provider?.ToLowerInvariant() switch {
+            "google drive" => "google",
+            "onedrive" => "microsoft",
+            "dropbox" => "dropbox",
+            _ => "cloud"
+        };
+    }
+
 } 

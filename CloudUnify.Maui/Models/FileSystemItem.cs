@@ -1,18 +1,15 @@
-using System;
-
 namespace CloudUnify.Maui.Models;
 
-public class FileSystemItem
-{
+public class FileSystemItem {
     public string Id { get; set; }
     public string Name { get; set; }
     public string Path { get; set; }
     public bool IsFolder { get; set; }
-    public bool IsDirectory => IsFolder;  // For backward compatibility
+    public bool IsDirectory => IsFolder; // For backward compatibility
     public long Size { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime ModifiedAt { get; set; }
-    public DateTime LastModified => ModifiedAt;  // For backward compatibility
+    public DateTime LastModified => ModifiedAt; // For backward compatibility
     public string Provider { get; set; }
     public string MimeType { get; set; }
     public bool IsSelected { get; set; }
@@ -20,13 +17,11 @@ public class FileSystemItem
     public string ProviderIconClass => GetProviderIconClass();
     public string ProviderColor => GetProviderColor();
     public string Icon => GetFileIcon();
-    
-    private string GetFileIcon()
-    {
+
+    private string GetFileIcon() {
         if (IsFolder) return "folder-fill";
-        
-        return Extension switch
-        {
+
+        return Extension switch {
             ".pdf" => "file-pdf",
             ".doc" or ".docx" => "file-word",
             ".xls" or ".xlsx" => "file-excel",
@@ -40,10 +35,8 @@ public class FileSystemItem
         };
     }
 
-    private string GetProviderIconClass()
-    {
-        return Provider?.ToLowerInvariant() switch
-        {
+    private string GetProviderIconClass() {
+        return Provider?.ToLowerInvariant() switch {
             "onedrive" => "microsoft",
             "googledrive" => "google",
             "dropbox" => "dropbox",
@@ -51,14 +44,12 @@ public class FileSystemItem
         };
     }
 
-    private string GetProviderColor()
-    {
-        return Provider?.ToLowerInvariant() switch
-        {
+    private string GetProviderColor() {
+        return Provider?.ToLowerInvariant() switch {
             "onedrive" => "#0078D4",
             "googledrive" => "#4285F4",
             "dropbox" => "#0061FF",
             _ => "#6c757d"
         };
     }
-} 
+}

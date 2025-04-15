@@ -1,6 +1,6 @@
-namespace CloudUnify.Maui.Services;
-
 using Microsoft.AspNetCore.Components;
+
+namespace CloudUnify.Maui.Services;
 
 public class NavigationService {
     private readonly NavigationManager _navigationManager;
