@@ -16,7 +16,6 @@ public class FileSystemViewModel : BaseViewModel {
     private string? _currentProviderId;
     private bool _isGridView = true;
     private bool _isMultiSelect;
-    private bool _isUnifiedView = true;
     private ObservableCollection<FileSystemItem> _items;
     private List<FileSystemItem> _selectedItems;
 
@@ -69,17 +68,6 @@ public class FileSystemViewModel : BaseViewModel {
     public string CurrentPath {
         get => _currentPath;
         set => SetProperty(ref _currentPath, value);
-    }
-
-    public bool IsUnifiedView {
-        get => _isUnifiedView;
-        set {
-            if (SetProperty(ref _isUnifiedView, value)) {
-                _currentProviderId = null;
-                LoadCurrentFolder();
-                UpdateBreadcrumbs();
-            }
-        }
     }
 
     public bool IsGridView {
@@ -139,7 +127,7 @@ public class FileSystemViewModel : BaseViewModel {
     private void UpdateBreadcrumbs() {
         var newBreadcrumbs = new List<(string Name, string Path)>();
 
-        if (!IsUnifiedView && _currentProviderId != null) {
+        if (_currentProviderId != null) {
             var provider = AvailableProviders.FirstOrDefault(p => p.ProviderId == _currentProviderId);
             newBreadcrumbs.Add((provider?.AccountName ?? _currentProviderId, "/"));
         }

@@ -23,20 +23,8 @@
                     }
                 }
             </div>
-            <div class="view-toggle">
-                <button class="action-button @(!ViewModel.IsUnifiedView ? "active" : "")"
-                        @onclick="@(() => ViewModel.IsUnifiedView = false)">
-                    <i class="bi bi-folder2"></i>
-                    <span>Provider View</span>
-                </button>
-                <button class="action-button @(ViewModel.IsUnifiedView ? "active" : "")"
-                        @onclick="@(() => ViewModel.IsUnifiedView = true)">
-                    <i class="bi bi-collection"></i>
-                    <span>Unified View</span>
-                </button>
-            </div>
         </div>
-        <div class="provider-selector @(ViewModel.IsUnifiedView ? "hidden" : "")">
+        <div class="provider-selector">
             <div class="provider-list">
                 @foreach (var provider in ViewModel.AvailableProviders) {
                     <button
@@ -58,7 +46,7 @@
         </div>
         <div class="actions">
             <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())"
-                    disabled="@(ViewModel.IsUnifiedView || ViewModel.CurrentProviderId == null)">
+                    disabled="@(ViewModel.CurrentProviderId == null)">
                 <i class="bi bi-folder-plus"></i>
                 <span>New Folder</span>
             </button>
@@ -89,7 +77,7 @@
             <div class="empty-state">
                 <i class="bi bi-folder2-open"></i>
                 <h3>This folder is empty</h3>
-                @if (!ViewModel.IsUnifiedView && ViewModel.CurrentProviderId != null) {
+                @if (ViewModel.CurrentProviderId != null) {
                     <p>Upload files or create a new folder to get started</p>
                     <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())">
                         <i class="bi bi-folder-plus"></i>
@@ -117,7 +105,7 @@
                                     <i class="bi bi-@(item.IsSelected ? "check-circle-fill" : "circle")"></i>
                                 </div>
                             }
-                            @if (!string.IsNullOrEmpty(item.Provider) && !ViewModel.IsUnifiedView) {
+                            @if (!string.IsNullOrEmpty(item.Provider) && ViewModel.CurrentProviderId == null) {
                                 <div class="provider-indicator"
                                      style="background-color: @GetProviderColor(item.Provider)">
                                     <i class="bi bi-@GetProviderIcon(item.Provider)"></i>
@@ -131,7 +119,7 @@
                                     <span class="file-size">@FormatFileSize(item.Size)</span>
                                 }
                                 <span class="file-date">@item.ModifiedAt.ToString("MMM d, yyyy")</span>
-                                @if (ViewModel.IsUnifiedView) {
+                                @if (ViewModel.CurrentProviderId == null) {
                                     <span class="file-provider">@item.Provider</span>
                                 }
                             </div>
@@ -635,24 +623,6 @@
     .context-menu-item i {
         font-size: 1.1em;
         color: #5f6368;
-    }
-
-    .view-toggle {
-        display: flex;
-        gap: 4px;
-        padding: 2px;
-        background-color: #f1f3f4;
-        border-radius: 4px;
-    }
-
-    .view-toggle .action-button {
-        background: none;
-        border-radius: 4px;
-    }
-
-    .view-toggle .action-button.active {
-        background-color: white;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .provider-indicator {
