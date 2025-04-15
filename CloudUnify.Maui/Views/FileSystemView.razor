@@ -1,0 +1,513 @@
+@page "/filesystem"
+@using CloudUnify.Maui.ViewModels
+@using CloudUnify.Maui.Models
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+
+<div class="file-system-container">
+    <div class="toolbar">
+        <div class="breadcrumb-container">
+            @foreach (var (name, path) in ViewModel.BreadcrumbItems)
+            {
+                <span class="breadcrumb-item">
+                    <a @onclick="@(() => ViewModel.NavigateToFolder(path))" 
+                       class="@(path == ViewModel.CurrentPath ? "active" : "")">
+                        @name
+                    </a>
+                </span>
+                @if (path != ViewModel.CurrentPath)
+                {
+                    <span class="breadcrumb-separator">/</span>
+                }
+            }
+        </div>
+        <div class="actions">
+            <button class="action-button primary" @onclick="@(() => ShowNewFolderDialog())">
+                <i class="bi bi-folder-plus"></i>
+                <span>New Folder</span>
+            </button>
+            <button class="action-button" @onclick="@(() => ViewModel.DeleteSelected())" 
+                    disabled="@(!ViewModel.SelectedItems.Any())">
+                <i class="bi bi-trash"></i>
+                <span>Delete</span>
+            </button>
+            <button class="action-button" @onclick="@(() => ViewModel.ToggleViewMode())">
+                <i class="bi bi-@(ViewModel.IsGridView ? "list" : "grid-3x3-gap")"></i>
+                <span>@(ViewModel.IsGridView ? "List View" : "Grid View")</span>
+            </button>
+            <button class="action-button" @onclick="@(() => ViewModel.IsMultiSelect = !ViewModel.IsMultiSelect)">
+                <i class="bi bi-@(ViewModel.IsMultiSelect ? "check-square" : "square")"></i>
+                <span>Select</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="@(ViewModel.IsGridView ? "file-grid" : "file-list")">
+            @foreach (var item in ViewModel.Items)
+            {
+                <div class="file-item @(item.IsSelected ? "selected" : "")" 
+                     @onclick="@(() => OnItemClick(item))"
+                     @oncontextmenu="@(e => ShowContextMenu(e, item))"
+                     @oncontextmenu:preventDefault="true">
+                    <div class="file-icon">
+                        <i class="bi bi-@item.Icon"></i>
+                        @if (ViewModel.IsMultiSelect)
+                        {
+                            <div class="selection-overlay">
+                                <i class="bi bi-@(item.IsSelected ? "check-circle-fill" : "circle")"></i>
+                            </div>
+                        }
+                    </div>
+                    <div class="file-details">
+                        <div class="file-name" title="@item.Name">@item.Name</div>
+                        <div class="file-info">
+                            @if (!item.IsDirectory)
+                            {
+                                <span>@FormatFileSize(item.Size)</span>
+                            }
+                            <span>@item.LastModified.ToString("MMM d, yyyy")</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (_showNewFolderDialog)
+    {
+        <div class="modal-backdrop" @onclick="@(() => _showNewFolderDialog = false)">
+            <div class="modal-dialog" @onclick:stopPropagation="true">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Create New Folder</h3>
+                        <button class="close-button" @onclick="@(() => _showNewFolderDialog = false)">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" @bind="_newFolderName" placeholder="Folder name" 
+                               @onkeyup="@(e => { if (e.Key == "Enter") CreateNewFolder(); })" />
+                    </div>
+                    <div class="modal-footer">
+                        <button class="secondary" @onclick="@(() => _showNewFolderDialog = false)">Cancel</button>
+                        <button class="primary" @onclick="@CreateNewFolder">Create</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_contextMenuItem != null)
+    {
+        <div class="context-menu" style="left: @(_contextMenuX)px; top: @(_contextMenuY)px">
+            @if (_contextMenuItem.IsDirectory)
+            {
+                <div class="context-menu-item" @onclick="@(() => ViewModel.NavigateToFolder(_contextMenuItem.Path))">
+                    <i class="bi bi-folder2-open"></i>
+                    <span>Open</span>
+                </div>
+            }
+            <div class="context-menu-item" @onclick="@(() => RenameItem(_contextMenuItem))">
+                <i class="bi bi-pencil"></i>
+                <span>Rename</span>
+            </div>
+            <div class="context-menu-item" @onclick="@(() => DeleteItems(new[] { _contextMenuItem }))">
+                <i class="bi bi-trash"></i>
+                <span>Delete</span>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .file-system-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background-color: #f8f9fa;
+    }
+
+    .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background-color: white;
+        padding: 12px 24px;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .breadcrumb-container {
+        display: flex;
+        align-items: center;
+        font-size: 1.1em;
+        color: #5f6368;
+        flex-wrap: wrap;
+    }
+
+    .breadcrumb-item {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .breadcrumb-item a {
+        color: #5f6368;
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .breadcrumb-item a:hover {
+        background-color: #f1f3f4;
+    }
+
+    .breadcrumb-item a.active {
+        color: #1a73e8;
+        font-weight: 500;
+    }
+
+    .breadcrumb-separator {
+        margin: 0 4px;
+        color: #5f6368;
+    }
+
+    .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .action-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border: none;
+        background-color: #f1f3f4;
+        color: #3c4043;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+    }
+
+    .action-button:hover {
+        background-color: #e8eaed;
+    }
+
+    .action-button.primary {
+        background-color: #1a73e8;
+        color: white;
+    }
+
+    .action-button.primary:hover {
+        background-color: #1557b0;
+    }
+
+    .action-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .content-area {
+        flex: 1;
+        overflow: auto;
+        padding: 20px;
+    }
+
+    .file-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+    }
+
+    .file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .file-item {
+        background-color: white;
+        border-radius: 8px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        position: relative;
+    }
+
+    .file-item:hover {
+        background-color: #f8f9fa;
+        border-color: #e0e0e0;
+    }
+
+    .file-item.selected {
+        background-color: #e8f0fe;
+        border-color: #1a73e8;
+    }
+
+    .file-icon {
+        font-size: 24px;
+        color: #5f6368;
+        margin-bottom: 8px;
+        position: relative;
+    }
+
+    .selection-overlay {
+        position: absolute;
+        top: -8px;
+        left: -8px;
+        color: #1a73e8;
+        background: white;
+        border-radius: 50%;
+    }
+
+    .file-details {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .file-name {
+        font-weight: 500;
+        color: #3c4043;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .file-info {
+        font-size: 0.75rem;
+        color: #5f6368;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(32, 33, 36, 0.6);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-dialog {
+        background: white;
+        border-radius: 8px;
+        min-width: 400px;
+        max-width: 90%;
+        box-shadow: 0 24px 38px 3px rgba(0,0,0,0.14), 
+                    0 9px 46px 8px rgba(0,0,0,0.12), 
+                    0 11px 15px -7px rgba(0,0,0,0.2);
+    }
+
+    .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: #3c4043;
+        font-size: 1.125rem;
+    }
+
+    .close-button {
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        color: #5f6368;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+    }
+
+    .close-button:hover {
+        background-color: #f1f3f4;
+    }
+
+    .modal-body {
+        padding: 24px;
+    }
+
+    .modal-body input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .modal-body input:focus {
+        outline: none;
+        border-color: #1a73e8;
+    }
+
+    .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .modal-footer button {
+        padding: 8px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+
+    .modal-footer button.secondary {
+        background-color: transparent;
+        color: #1a73e8;
+    }
+
+    .modal-footer button.secondary:hover {
+        background-color: #f1f3f4;
+    }
+
+    .modal-footer button.primary {
+        background-color: #1a73e8;
+        color: white;
+    }
+
+    .modal-footer button.primary:hover {
+        background-color: #1557b0;
+    }
+
+    .context-menu {
+        position: fixed;
+        background: white;
+        border-radius: 4px;
+        min-width: 180px;
+        box-shadow: 0 2px 6px 2px rgba(60,64,67,0.15);
+        z-index: 1000;
+    }
+
+    .context-menu-item {
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        color: #3c4043;
+        transition: background-color 0.2s;
+    }
+
+    .context-menu-item:hover {
+        background-color: #f1f3f4;
+    }
+
+    .context-menu-item i {
+        font-size: 1.1em;
+        color: #5f6368;
+    }
+</style>
+
+@code {
+    private FileSystemViewModel ViewModel { get; set; } = new();
+    private bool _showNewFolderDialog;
+    private string _newFolderName;
+    private FileSystemItem _contextMenuItem;
+    private double _contextMenuX;
+    private double _contextMenuY;
+
+    protected override void OnInitialized()
+    {
+        // Close context menu when clicking outside
+        JSRuntime.InvokeVoidAsync("document.addEventListener", "click", () => 
+        {
+            if (_contextMenuItem != null)
+            {
+                _contextMenuItem = null;
+                StateHasChanged();
+            }
+        });
+    }
+
+    private void OnItemClick(FileSystemItem item)
+    {
+        if (ViewModel.IsMultiSelect)
+        {
+            ViewModel.ToggleItemSelection(item);
+        }
+        else if (item.IsDirectory)
+        {
+            ViewModel.NavigateToFolder(item.Path);
+        }
+    }
+
+    private void ShowContextMenu(MouseEventArgs e, FileSystemItem item)
+    {
+        _contextMenuItem = item;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        StateHasChanged();
+    }
+
+    private void ShowNewFolderDialog()
+    {
+        _newFolderName = "";
+        _showNewFolderDialog = true;
+    }
+
+    private void CreateNewFolder()
+    {
+        if (!string.IsNullOrWhiteSpace(_newFolderName))
+        {
+            ViewModel.CreateNewFolder(_newFolderName);
+            _showNewFolderDialog = false;
+        }
+    }
+
+    private async Task RenameItem(FileSystemItem item)
+    {
+        var newName = await JSRuntime.InvokeAsync<string>("prompt", "Enter new name:", item.Name);
+        if (!string.IsNullOrWhiteSpace(newName))
+        {
+            ViewModel.RenameItem(item, newName);
+        }
+        _contextMenuItem = null;
+    }
+
+    private void DeleteItems(IEnumerable<FileSystemItem> items)
+    {
+        foreach (var item in items)
+        {
+            item.IsSelected = true;
+        }
+        ViewModel.DeleteSelected();
+        _contextMenuItem = null;
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        int order = 0;
+        double size = bytes;
+
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size = size / 1024;
+        }
+
+        return $"{size:0.##} {sizes[order]}";
+    }
+} 

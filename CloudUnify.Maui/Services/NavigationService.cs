@@ -28,6 +28,11 @@ public class NavigationService {
         await Task.CompletedTask;
     }
 
+    public async Task NavigateToFileSystemAsync() {
+        _navigationManager.NavigateTo("/filesystem");
+        await Task.CompletedTask;
+    }
+
     public async Task NavigateBackAsync() {
         _navigationManager.NavigateTo(_navigationManager.BaseUri);
         await Task.CompletedTask;
@@ -49,6 +54,10 @@ public class NavigationService {
 
     public void NavigateToStorages() {
         _navigationManager.NavigateTo("/storages");
+    }
+
+    public void NavigateToFileSystem() {
+        _navigationManager.NavigateTo("/filesystem");
     }
 
     public void NavigateBack() {

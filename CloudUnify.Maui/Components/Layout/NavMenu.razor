@@ -24,6 +24,12 @@
             </a>
         </div>
         <div class="nav-item px-3">
+            <a href="filesystem" class="nav-link @(_currentPath == "/filesystem" ? "active" : "")"
+               @onclick="@(async () => await NavigateAndCloseAsync("/filesystem"))">
+                <span class="bi bi-folder-fill" aria-hidden="true"></span> File System
+            </a>
+        </div>
+        <div class="nav-item px-3">
             <a href="files" class="nav-link @(_currentPath == "/files" ? "active" : "")"
                @onclick="@(async () => await NavigateAndCloseAsync("/files"))">
                 <span class="bi bi-files" aria-hidden="true"></span> Files
@@ -63,5 +69,4 @@
         await NavigationService.NavigateToAsync(path);
         CloseNavMenu();
     }
-
 }
