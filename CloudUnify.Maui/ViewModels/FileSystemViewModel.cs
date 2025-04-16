@@ -10,6 +10,7 @@ namespace CloudUnify.Maui.ViewModels;
 public class FileSystemViewModel : BaseViewModel {
     private readonly CloudUnifyManager _cloudUnifyManager;
     private readonly CloudFileSystemService _fileSystemService;
+    private readonly SecureStorageService _secureStorageService;
     private ObservableCollection<StorageProviderInfo> _availableProviders;
     private List<(string Name, string Path)> _breadcrumbItems;
     private string _currentPath = "/";
@@ -19,9 +20,13 @@ public class FileSystemViewModel : BaseViewModel {
     private ObservableCollection<FileSystemItem> _items;
     private List<FileSystemItem> _selectedItems;
 
-    public FileSystemViewModel(CloudFileSystemService fileSystemService, CloudUnifyManager cloudUnifyManager) {
+    public FileSystemViewModel(
+        CloudFileSystemService fileSystemService,
+        CloudUnifyManager cloudUnifyManager,
+        SecureStorageService secureStorageService) {
         _fileSystemService = fileSystemService;
         _cloudUnifyManager = cloudUnifyManager;
+        _secureStorageService = secureStorageService;
         _items = new ObservableCollection<FileSystemItem>();
         _breadcrumbItems = new List<(string Name, string Path)>();
         _selectedItems = new List<FileSystemItem>();
@@ -91,13 +96,57 @@ public class FileSystemViewModel : BaseViewModel {
         }
     }
 
-    public async Task ConnectProviderAsync(StorageProvider providerType) {
+    public async Task<bool> ConnectProviderAsync(StorageProvider provider) {
         try {
-            var success = await _cloudUnifyManager.ConnectProviderAsync(providerType);
-            if (success) await LoadProvidersAsync();
+            var clientSecrets = provider switch {
+                StorageProvider.GoogleDrive => await _secureStorageService.GetGoogleDriveSecretsAsync(),
+                StorageProvider.OneDrive => await _secureStorageService.GetOneDriveSecretsAsync(),
+                _ => null
+            };
+
+            if (string.IsNullOrEmpty(clientSecrets)) {
+                Debug.WriteLine("Client secrets not found in secure storage");
+                return false;
+            }
+
+            // Create a temporary file for the client secrets
+            var tempPath = Path.GetTempFileName();
+            await File.WriteAllTextAsync(tempPath, clientSecrets);
+
+            try {
+                var (providerId, success) = provider switch {
+                    StorageProvider.GoogleDrive => await _cloudUnifyManager.ConnectGoogleDriveAsync(
+                        tempPath,
+                        "CloudUnify",
+                        "token_store",
+                        "default_user"
+                    ),
+                    StorageProvider.OneDrive => await _cloudUnifyManager.ConnectOneDriveAsync(
+                        tempPath,
+                        "CloudUnify",
+                        "token_store",
+                        "default_user"
+                    ),
+                    _ => (string.Empty, false)
+                };
+
+                if (success) await LoadProvidersAsync();
+
+                return success;
+            }
+            finally {
+                // Clean up the temporary file
+                try {
+                    File.Delete(tempPath);
+                }
+                catch (Exception ex) {
+                    Debug.WriteLine($"Error deleting temporary file: {ex.Message}");
+                }
+            }
         }
         catch (Exception ex) {
-            Debug.WriteLine($"Error connecting provider: {ex}");
+            Debug.WriteLine($"Error connecting provider: {ex.Message}");
+            return false;
         }
     }
 

@@ -1,11 +1,18 @@
 @page "/filesystem"
+@using CloudUnify.Core
+@using CloudUnify.Core.Interfaces
 @using CloudUnify.Core.Models
 @using CloudUnify.Maui.Models
+@using CloudUnify.Maui.Services
 @using CloudUnify.Maui.ViewModels
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
 @inject FileSystemViewModel ViewModel
+@inject SecureStorageService SecureStorageService
+@inject NavigationService NavigationService
+@inject CloudUnifyManager CloudUnifyManager
+@inject IProviderStorage ProviderStorage
 
 <div class="file-system-container">
     <div class="toolbar">
@@ -129,7 +136,13 @@
                                 }
                                 <span class="file-date">@item.ModifiedAt.ToString("MMM d, yyyy")</span>
                                 @if (ViewModel.CurrentProviderId == null) {
-                                    <span class="file-provider">@item.Provider</span>
+                                    var providerInfo = ProviderStorage.GetProvider(item.Provider);
+                                    var displayName = providerInfo?.Name ?? item.Provider;
+                                    <span class="file-provider"
+                                          style="background-color: @GetProviderColor(item.Provider)">
+                                        <i class="bi bi-@GetProviderIcon(item.Provider)"></i>
+                                        @displayName
+                                    </span>
                                 }
                             </div>
                         </div>
@@ -185,47 +198,99 @@
 
     @if (_showAddProviderDialog) {
         <div class="modal-backdrop" @onclick="@(() => _showAddProviderDialog = false)">
-            <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3>Add Storage Provider</h3>
+                        <h3 class="modal-title">Add Storage Provider</h3>
                         <button class="close-button" @onclick="@(() => _showAddProviderDialog = false)">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
-                    <div class="modal-body">
-                        <div class="provider-options">
-                            <button class="provider-option"
-                                    @onclick="@(() => ConnectProvider(StorageProvider.GoogleDrive))">
-                                <div class="provider-icon google">
-                                    <i class="bi bi-google"></i>
-                                </div>
-                                <div class="provider-info">
-                                    <span class="provider-name">Google Drive</span>
-                                    <span class="provider-description">Connect your Google Drive account</span>
-                                </div>
-                            </button>
-                            <button class="provider-option"
-                                    @onclick="@(() => ConnectProvider(StorageProvider.OneDrive))">
-                                <div class="provider-icon onedrive">
-                                    <i class="bi bi-microsoft"></i>
-                                </div>
-                                <div class="provider-info">
-                                    <span class="provider-name">OneDrive</span>
-                                    <span class="provider-description">Connect your Microsoft OneDrive account</span>
-                                </div>
-                            </button>
-                            <button class="provider-option"
-                                    @onclick="@(() => ConnectProvider(StorageProvider.Dropbox))">
-                                <div class="provider-icon dropbox">
-                                    <i class="bi bi-dropbox"></i>
-                                </div>
-                                <div class="provider-info">
-                                    <span class="provider-name">Dropbox</span>
-                                    <span class="provider-description">Connect your Dropbox account</span>
-                                </div>
-                            </button>
+                    @if (_selectedProvider == null) {
+                        <div class="modal-body">
+                            <div class="provider-options">
+                                <button class="provider-option"
+                                        @onclick="@(() => SelectProvider(StorageProvider.GoogleDrive))">
+                                    <div class="provider-icon google">
+                                        <i class="bi bi-google"></i>
+                                    </div>
+                                    <div class="provider-info">
+                                        <span class="provider-name">Google Drive</span>
+                                        <span class="provider-description">Connect your Google Drive account</span>
+                                    </div>
+                                </button>
+                                <button class="provider-option"
+                                        @onclick="@(() => SelectProvider(StorageProvider.OneDrive))">
+                                    <div class="provider-icon onedrive">
+                                        <i class="bi bi-microsoft"></i>
+                                    </div>
+                                    <div class="provider-info">
+                                        <span class="provider-name">OneDrive</span>
+                                        <span
+                                            class="provider-description">Connect your Microsoft OneDrive account</span>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
+                    }
+                    else {
+                        <div class="modal-body">
+                            <form @onsubmit="ConnectSelectedProvider">
+                                <div class="mb-3">
+                                    <label for="providerName" class="form-label">Provider Name</label>
+                                    <input type="text" class="form-control" id="providerName" @bind="_providerName"
+                                           required>
+                                    <div class="form-text">A friendly name for this provider (e.g.,
+                                        "@(_selectedProvider == StorageProvider.GoogleDrive ? "Work Google Drive" : "Work OneDrive")").
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="userId" class="form-label">User ID</label>
+                                    <input type="email" class="form-control" id="userId" @bind="_userId" required>
+                                    <div class="form-text">
+                                        Your @(_selectedProvider == StorageProvider.GoogleDrive ? "Google" : "Microsoft") account
+                                        email address.
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-secondary" @onclick="CancelProviderSelection">
+                                        Back
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">Connect</button>
+                                </div>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_showRenameProviderDialog) {
+        <div class="modal-backdrop" @onclick="@(() => _showRenameProviderDialog = false)">
+            <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Rename Provider</h3>
+                        <button class="close-button" @onclick="@(() => _showRenameProviderDialog = false)">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form @onsubmit="RenameSelectedProvider">
+                            <div class="mb-3">
+                                <label for="newProviderName" class="form-label">New Provider Name</label>
+                                <input type="text" class="form-control" id="newProviderName" @bind="_newProviderName"
+                                       required>
+                                <div class="form-text">Enter a new friendly name for this provider.</div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary"
+                                        @onclick="@(() => _showRenameProviderDialog = false)">Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary">Save</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -487,10 +552,17 @@
     }
 
     .file-provider {
-        padding: 2px 6px;
-        background-color: #f1f3f4;
+        padding: 4px 8px;
         border-radius: 4px;
-        font-weight: 500;
+        font-size: 0.75rem;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .file-provider i {
+        font-size: 0.875rem;
     }
 
     @* Escape the @ symbol for CSS @keyframes in Razor *@
@@ -508,68 +580,61 @@
         position: fixed;
         top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(32, 33, 36, 0.6);
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
         display: flex;
-        justify-content: center;
         align-items: center;
-        z-index: 1000;
+        justify-content: center;
+        z-index: 1050;
     }
 
     .modal-dialog {
+        width: 100%;
+        max-width: 500px;
+        margin: 0;
+    }
+
+    .modal-content {
         background: white;
-        border-radius: 8px;
-        min-width: 400px;
-        max-width: 90%;
-        box-shadow: 0 24px 38px 3px rgba(0, 0, 0, 0.14),
-        0 9px 46px 8px rgba(0, 0, 0, 0.12),
-        0 11px 15px -7px rgba(0, 0, 0, 0.2);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     .modal-header {
-        padding: 20px 24px;
+        padding: 16px 24px;
         border-bottom: 1px solid #e0e0e0;
         display: flex;
-        justify-content: space-between;
         align-items: center;
+        justify-content: space-between;
     }
 
-    .modal-header h3 {
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 500;
         margin: 0;
-        color: #3c4043;
-        font-size: 1.125rem;
     }
 
     .close-button {
         background: none;
         border: none;
         font-size: 1.25rem;
-        color: #5f6368;
+        color: #666;
         cursor: pointer;
         padding: 4px;
-        border-radius: 50%;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .close-button:hover {
-        background-color: #f1f3f4;
+        background-color: #f5f5f5;
+        color: #333;
     }
 
     .modal-body {
         padding: 24px;
-    }
-
-    .modal-body input {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #dadce0;
-        border-radius: 4px;
-        font-size: 1rem;
-    }
-
-    .modal-body input:focus {
-        outline: none;
-        border-color: #1a73e8;
     }
 
     .modal-footer {
@@ -785,15 +850,151 @@
         color: #5f6368;
         font-size: 0.875rem;
     }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #3c4043;
+    }
+
+    .form-control {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: #3c4043;
+        background-color: #fff;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        transition: border-color 0.2s ease-in-out;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .text-muted {
+        color: #5f6368;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        font-weight: 500;
+        text-align: center;
+        text-decoration: none;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background-color: #1a73e8;
+        color: white;
+        border-color: #1a73e8;
+    }
+
+    .btn-primary:hover {
+        background-color: #1557b0;
+        border-color: #1557b0;
+    }
+
+    .btn-secondary {
+        background-color: transparent;
+        color: #3c4043;
+        border-color: #dadce0;
+    }
+
+    .btn-secondary:hover {
+        background-color: #f1f3f4;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-header {
+        border-bottom: none;
+        padding: 1.5rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #3c4043;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: #3c4043;
+        background-color: #fff;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        transition: border-color 0.2s ease-in-out;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+        color: #5f6368;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem;
+    }
 </style>
 
 @code {
     private bool _showNewFolderDialog;
     private bool _showAddProviderDialog;
+    private bool _showRenameProviderDialog;
     private string _newFolderName;
     private FileSystemItem _contextMenuItem;
     private double _contextMenuX;
     private double _contextMenuY;
+    private StorageProvider? _selectedProvider;
+    private string _userId = "";
+    private string _providerName = "";
+    private string _newProviderName = "";
+    private StorageProviderInfo? _selectedProviderForRename;
 
     protected override void OnInitialized() {
         // Close context menu when clicking outside
@@ -816,11 +1017,94 @@
 
     private void ShowAddProviderDialog() {
         _showAddProviderDialog = true;
+        _selectedProvider = null;
+        _userId = "";
+        _providerName = "";
     }
 
-    private async Task ConnectProvider(StorageProvider provider) {
-        await ViewModel.ConnectProviderAsync(provider);
-        _showAddProviderDialog = false;
+    private void SelectProvider(StorageProvider provider) {
+        _selectedProvider = provider;
+        _userId = "";
+        _providerName = provider switch {
+            StorageProvider.GoogleDrive => "Google Drive",
+            StorageProvider.OneDrive => "OneDrive",
+            _ => ""
+        };
+    }
+
+    private void CancelProviderSelection() {
+        _selectedProvider = null;
+        _userId = "";
+        _providerName = "";
+    }
+
+    private async Task ConnectSelectedProvider(EventArgs e) {
+        if (_selectedProvider == null || string.IsNullOrWhiteSpace(_userId) || string.IsNullOrWhiteSpace(_providerName)) return;
+
+        try {
+            var clientSecrets = _selectedProvider.Value switch {
+                StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
+                StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
+                _ => null
+            };
+
+            if (string.IsNullOrEmpty(clientSecrets)) {
+                await NavigationService.NavigateToAddStorageAsync();
+                return;
+            }
+
+            var tempPath = Path.GetTempFileName();
+            await File.WriteAllTextAsync(tempPath, clientSecrets);
+
+            try {
+                var (providerId, success) = _selectedProvider.Value switch {
+                    StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
+                        tempPath,
+                        "CloudUnify",
+                        "token_store",
+                        _userId
+                    ),
+                    StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
+                        tempPath,
+                        "CloudUnify",
+                        "token_store",
+                        _userId
+                    ),
+                    _ => (string.Empty, false)
+                };
+
+                if (success) {
+                    // Update the provider name in storage
+                    var provider = ProviderStorage.GetProvider(providerId);
+                    if (provider != null) {
+                        ProviderStorage.SaveProvider(
+                            providerId,
+                            provider.Type,
+                            _providerName,
+                            provider.UserId,
+                            provider.ClientSecretsPath
+                        );
+                    }
+
+                    _showAddProviderDialog = false;
+                    _selectedProvider = null;
+                    _userId = "";
+                    _providerName = "";
+                    StateHasChanged();
+                }
+            }
+            finally {
+                try {
+                    File.Delete(tempPath);
+                }
+                catch (Exception ex) {
+                    Console.WriteLine($"Error deleting temporary file: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error connecting provider: {ex.Message}");
+        }
     }
 
     private void OnItemClick(FileSystemItem item) {
@@ -915,6 +1199,46 @@
             "dropbox" => "dropbox",
             _ => "cloud"
         };
+    }
+
+    private void ShowRenameProviderDialog(StorageProviderInfo provider) {
+        _selectedProviderForRename = provider;
+        _newProviderName = provider.AccountName;
+        _showRenameProviderDialog = true;
+    }
+
+    private async Task RenameSelectedProvider() {
+        if (_selectedProviderForRename == null || string.IsNullOrWhiteSpace(_newProviderName)) return;
+
+        var provider = ProviderStorage.GetProvider(_selectedProviderForRename.ProviderId);
+        if (provider != null) {
+            ProviderStorage.SaveProvider(
+                provider.Id,
+                provider.Type,
+                _newProviderName,
+                provider.UserId,
+                provider.ClientSecretsPath
+            );
+
+            // Refresh the view by updating the provider name in the ViewModel
+            var existingProvider = ViewModel.AvailableProviders.FirstOrDefault(p => p.ProviderId == provider.Id);
+            if (existingProvider != null) {
+                var index = ViewModel.AvailableProviders.IndexOf(existingProvider);
+                ViewModel.AvailableProviders[index] = new StorageProviderInfo {
+                    ProviderId = existingProvider.ProviderId,
+                    ProviderType = existingProvider.ProviderType,
+                    AccountName = _newProviderName,
+                    UsedSpace = existingProvider.UsedSpace,
+                    TotalSpace = existingProvider.TotalSpace,
+                    IsConnected = existingProvider.IsConnected,
+                    LastConnected = existingProvider.LastConnected
+                };
+            }
+        }
+
+        _showRenameProviderDialog = false;
+        _selectedProviderForRename = null;
+        _newProviderName = "";
     }
 
 } 

@@ -197,7 +197,16 @@ public class CloudUnifyManager {
 
             try {
                 var clientSecretsPath = provider.ClientSecretsPath;
-                if (string.IsNullOrEmpty(clientSecretsPath) || !File.Exists(clientSecretsPath)) continue;
+                if (string.IsNullOrEmpty(clientSecretsPath)) {
+                    Debug.WriteLine($"Client secrets path is missing for provider {provider.Name}");
+                    continue;
+                }
+
+                if (!File.Exists(clientSecretsPath)) {
+                    Debug.WriteLine(
+                        $"Client secrets file not found at {clientSecretsPath} for provider {provider.Name}");
+                    continue;
+                }
 
                 bool success;
                 if (provider.Type == "GoogleDrive") {
@@ -221,13 +230,14 @@ public class CloudUnifyManager {
                     success = connected;
                 }
                 else {
+                    Debug.WriteLine($"Unknown provider type: {provider.Type}");
                     continue;
                 }
 
                 _providerStorage.UpdateConnectionState(provider.Id, success);
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error reconnecting to {provider.Name}: {ex.Message}");
+                Debug.WriteLine($"Error reconnecting to {provider.Name}: {ex.Message}");
                 _providerStorage.UpdateConnectionState(provider.Id, false);
             }
         }
@@ -267,7 +277,7 @@ public class CloudUnifyManager {
                     break;
             }
 
-            if (success && providerId != null) {
+            if (success) {
                 Debug.WriteLine($"Provider connected successfully. ID: {providerId}");
                 // Verify provider registration
                 if (_providers.ContainsKey(providerId)) {

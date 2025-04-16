@@ -77,35 +77,33 @@
                                         }
                                     </div>
                                 </div>
-                                <div class="dropdown">
-                                    <button class="btn btn-outline-secondary btn-sm" type="button"
-                                            data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        @if (provider.IsConnected) {
+                                <div class="provider-actions">
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button"
+                                                data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
                                             <li>
                                                 <button class="dropdown-item"
-                                                        @onclick="@(async () => await DisconnectProviderAsync(provider.Id, provider.UserId))">
-                                                    <i class="bi bi-power"></i> Disconnect
+                                                        @onclick="@(() => ShowRenameDialog(provider))">
+                                                    <i class="bi bi-pencil"></i> Rename
                                                 </button>
                                             </li>
-                                        }
-                                        else {
                                             <li>
                                                 <button class="dropdown-item"
-                                                        @onclick="@(async () => await ReconnectProviderAsync(provider.Id))">
-                                                    <i class="bi bi-plug"></i> Connect
+                                                        @onclick="@(() => DisconnectProviderAsync(provider.Id, provider.UserId))">
+                                                    <i class="bi bi-box-arrow-right"></i> Disconnect
                                                 </button>
                                             </li>
-                                        }
-                                        <li>
-                                            <button class="dropdown-item text-danger"
-                                                    @onclick="@(async () => await RemoveProviderAsync(provider.Id))">
-                                                <i class="bi bi-trash"></i> Remove
-                                            </button>
-                                        </li>
-                                    </ul>
+                                            <li>
+                                                <button class="dropdown-item text-danger"
+                                                        @onclick="@(() => RemoveProviderAsync(provider.Id))">
+                                                    <i class="bi bi-trash"></i> Remove
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
 
@@ -155,9 +153,136 @@
     }
 </div>
 
+@if (_showRenameDialog) {
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rename Provider</h5>
+                    <button type="button" class="btn-close" @onclick="@(() => _showRenameDialog = false)"></button>
+                </div>
+                <div class="modal-body">
+                    <form @onsubmit="RenameProvider">
+                        <div class="mb-3">
+                            <label for="newName" class="form-label">New Name</label>
+                            <input type="text" class="form-control" id="newName" @bind="_newProviderName" required>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="@(() => _showRenameDialog = false)">Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .progress {
+        background-color: #e9ecef;
+        border-radius: 4px;
+    }
+
+    .progress-bar {
+        border-radius: 4px;
+    }
+
+    .dropdown-menu {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+    }
+
+    .dropdown-item i {
+        margin-right: 0.5rem;
+    }
+
+    .badge {
+        padding: 0.5em 0.75em;
+    }
+
+    .provider-details {
+        font-size: 0.9rem;
+    }
+
+    .provider-details i {
+        width: 1.2rem;
+        text-align: center;
+        margin-right: 0.5rem;
+    }
+
+    .card-title {
+        margin-bottom: 1rem;
+    }
+
+    .card-title i {
+        margin-right: 0.5rem;
+    }
+
+    .provider-actions {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 10;
+    }
+
+    .provider-actions .btn {
+        padding: 0.25rem 0.5rem;
+    }
+
+    .provider-actions .btn::after {
+        display: none;
+    }
+
+    .dropdown-menu {
+        min-width: 200px;
+        z-index: 1100;
+    }
+
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .dropdown-item i {
+        font-size: 1rem;
+    }
+
+    .text-danger {
+        color: #dc3545;
+    }
+
+    .text-danger:hover {
+        background-color: #dc354520;
+    }
+</style>
+
 @code {
     private List<ProviderInfo>? _providers;
     private List<CloudStorageInfo>? _storageInfo;
+    private bool _showRenameDialog;
+    private string _newProviderName = "";
+    private ProviderInfo? _selectedProvider;
 
     protected override async Task OnInitializedAsync() {
         await CloudUnifyManager.AutoConnectProvidersAsync();
@@ -234,61 +359,28 @@
         return $"{size:0.##} {sizes[order]}";
     }
 
-}
-
-<style>
-    .card {
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
+    private void ShowRenameDialog(ProviderInfo provider) {
+        _selectedProvider = provider;
+        _newProviderName = provider.Name;
+        _showRenameDialog = true;
     }
 
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    private async Task RenameProvider() {
+        if (_selectedProvider == null || string.IsNullOrWhiteSpace(_newProviderName)) return;
+
+        ProviderStorage.SaveProvider(
+            _selectedProvider.Id,
+            _selectedProvider.Type,
+            _newProviderName,
+            _selectedProvider.UserId,
+            _selectedProvider.ClientSecretsPath
+        );
+
+        _showRenameDialog = false;
+        _selectedProvider = null;
+        _newProviderName = "";
+
+        await LoadProvidersAsync();
     }
 
-    .progress {
-        background-color: #e9ecef;
-        border-radius: 4px;
-    }
-
-    .progress-bar {
-        border-radius: 4px;
-    }
-
-    .dropdown-menu {
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .dropdown-item {
-        padding: 0.5rem 1rem;
-    }
-
-    .dropdown-item i {
-        margin-right: 0.5rem;
-    }
-
-    .badge {
-        padding: 0.5em 0.75em;
-    }
-
-    .provider-details {
-        font-size: 0.9rem;
-    }
-
-    .provider-details i {
-        width: 1.2rem;
-        text-align: center;
-        margin-right: 0.5rem;
-    }
-
-    .card-title {
-        margin-bottom: 1rem;
-    }
-
-    .card-title i {
-        margin-right: 0.5rem;
-    }
-</style> 
+} 
