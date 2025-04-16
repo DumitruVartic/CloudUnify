@@ -149,9 +149,9 @@
     private async Task ConnectProvider() {
         try {
             var clientSecrets = _selectedProvider switch {
-                StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
-                StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
-                _ => throw new ArgumentException("Unsupported provider type")
+                    StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
+                    StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
+                    _ => throw new ArgumentException("Unsupported provider type")
             };
 
             if (string.IsNullOrEmpty(clientSecrets)) {
@@ -164,19 +164,19 @@
             await File.WriteAllTextAsync(tempPath, clientSecrets);
 
             var (providerId, success) = _selectedProvider switch {
-                StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
-                    tempPath,
-                    "CloudUnify",
-                    "token_store",
-                    _userId
-                ),
-                StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
-                    tempPath,
-                    "CloudUnify",
-                    "token_store",
-                    _userId
-                ),
-                _ => throw new ArgumentException("Unsupported provider type")
+                    StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
+                            tempPath,
+                            "CloudUnify",
+                            "token_store",
+                            _userId
+                    ),
+                    StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
+                            tempPath,
+                            "CloudUnify",
+                            "token_store",
+                            _userId
+                    ),
+                    _ => throw new ArgumentException("Unsupported provider type")
             };
 
             // Clean up the temporary file
@@ -189,10 +189,10 @@
 
             if (success) {
                 ProviderStorage.SaveProvider(
-                    providerId,
-                    _selectedProvider.ToString(),
-                    _providerName,
-                    _userId
+                        providerId,
+                        _selectedProvider.ToString(),
+                        _providerName,
+                        _userId
                 );
 
                 await NavigationService.NavigateToStoragesAsync();
