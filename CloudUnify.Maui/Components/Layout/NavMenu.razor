@@ -4,6 +4,38 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">CloudUnify</a>
+        <nav class="flex-row">
+            <div class="nav-item">
+                <a href="" class="nav-link @(_currentPath == "/" ? "active" : "")"
+                   @onclick="@(async () => await NavigateAndCloseAsync("/"))">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="storages" class="nav-link @(_currentPath == "/storages" ? "active" : "")"
+                   @onclick="@(async () => await NavigateAndCloseAsync("/storages"))">
+                    <span class="bi bi-folder2-open" aria-hidden="true"></span> Storages
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="filesystem" class="nav-link @(_currentPath == "/filesystem" ? "active" : "")"
+                   @onclick="@(async () => await NavigateAndCloseAsync("/filesystem"))">
+                    <span class="bi bi-folder-fill" aria-hidden="true"></span> File System
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="files" class="nav-link @(_currentPath == "/files" ? "active" : "")"
+                   @onclick="@(async () => await NavigateAndCloseAsync("/files"))">
+                    <span class="bi bi-files" aria-hidden="true"></span> Files
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="add-storage" class="nav-link @(_currentPath == "/add-storage" ? "active" : "")"
+                   @onclick="@(async () => await NavigateAndCloseAsync("/add-storage"))">
+                    <span class="bi bi-plus-circle" aria-hidden="true"></span> Add Storage
+                </a>
+            </div>
+        </nav>
     </div>
 </div>
 
@@ -69,5 +101,4 @@
         await NavigationService.NavigateToAsync(path);
         CloseNavMenu();
     }
-
 }

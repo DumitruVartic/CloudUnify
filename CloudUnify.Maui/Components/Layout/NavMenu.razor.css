@@ -16,6 +16,7 @@
     color: white;
     text-decoration: none;
     transition: opacity 0.2s;
+    margin-right: 2rem;
 }
 
 .navbar-brand:hover {
@@ -26,8 +27,7 @@
     display: inline-block;
     position: relative;
     width: 1.25rem;
-    /* height: 1.25rem; */
-    margin-right: 0.75rem;
+    margin-right: 0.5rem;
     top: -1px;
     background-size: cover;
 }
@@ -46,16 +46,7 @@
 
 .nav-item {
     font-size: 0.9rem;
-    padding-bottom: 0.5rem;
-    transition: transform 0.2s;
-}
-
-.nav-item:first-of-type {
-    padding-top: 1rem;
-}
-
-.nav-item:last-of-type {
-    padding-bottom: 1rem;
+    padding: 0 0.5rem;
 }
 
 .nav-item ::deep a {
@@ -73,7 +64,6 @@
 .nav-item ::deep a:hover {
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
-    transform: translateX(5px);
 }
 
 .nav-item ::deep a.active {
@@ -86,30 +76,50 @@
     font-size: 1.1rem;
 }
 
-.nav-scrollable {
-    display: block;
-    height: calc(100vh - 3.5rem);
-    overflow-y: auto;
-    padding-top: 1rem;
+.top-row {
+    display: flex;
+    align-items: center;
+    height: 3.5rem;
+    padding: 0 1rem;
+}
+
+.container-fluid {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+nav.flex-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-left: auto;
 }
 
 @media (max-width: 640.98px) {
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
     .navbar-toggler {
         display: block;
+        margin-left: auto;
     }
 
-    .nav-scrollable {
+    nav.flex-row {
         display: none;
     }
 
-    .nav-scrollable.show {
-        display: block;
+    nav.flex-row.show {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 3.5rem;
+        left: 0;
+        right: 0;
+        background-color: #2d3748;
+        padding: 1rem;
+    }
+
+    .nav-item {
+        width: 100%;
+        padding: 0.5rem 0;
     }
 }
 
@@ -118,7 +128,7 @@
         display: none;
     }
 
-    .nav-scrollable {
-        display: block;
+    nav.flex-row {
+        display: flex;
     }
 }
