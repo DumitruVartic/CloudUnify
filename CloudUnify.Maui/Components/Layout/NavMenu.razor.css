@@ -114,7 +114,7 @@ nav.flex-row {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(45, 55, 72, 0.98);
+        background: #2d3748;
         z-index: 2000;
         transition: transform 0.3s ease-in-out;
         padding-top: 3.5rem;
