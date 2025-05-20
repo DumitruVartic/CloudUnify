@@ -49,19 +49,7 @@ public class OneDriveAuthProvider : IAuthProvider {
                 }
             }
 
-            // Check if we have a stored token
-            if (File.Exists(tokenFilePath)) {
-                var _tokenJson = await File.ReadAllTextAsync(tokenFilePath);
-                var _tokenData = JsonSerializer.Deserialize<JsonElement>(_tokenJson);
-
-                if (_tokenData.TryGetProperty("refresh_token", out var refreshToken)) {
-                    // Try to refresh the token
-                    var newToken = await RefreshTokenAsync(clientId, clientSecret, refreshToken.GetString());
-                    if (!string.IsNullOrEmpty(newToken)) return newToken;
-                }
-            }
-
-            // No valid stored token, start new auth flow
+            // Always start new auth flow
             Console.WriteLine("Starting new authentication flow...");
 
             // Create a local server to receive the auth code
@@ -71,7 +59,8 @@ public class OneDriveAuthProvider : IAuthProvider {
                                    $"&response_type=code" +
                                    $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                                    $"&scope={Uri.EscapeDataString("Files.ReadWrite Files.ReadWrite.All Files.Read Files.Read.All offline_access User.Read")}" +
-                                   $"&response_mode=query";
+                                   $"&response_mode=query" +
+                                   $"&prompt=consent"; // Force consent screen
 
             Console.WriteLine("A browser window will open for authentication...");
             Console.WriteLine("Please log in and grant the requested permissions.");
@@ -103,14 +92,6 @@ public class OneDriveAuthProvider : IAuthProvider {
             }
 
             var tokenData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-
-            // Ensure directory exists before saving
-            var tokenDirectory = Path.GetDirectoryName(tokenFilePath);
-            if (!string.IsNullOrEmpty(tokenDirectory) && !Directory.Exists(tokenDirectory))
-                Directory.CreateDirectory(tokenDirectory);
-
-            // Save the token data for future use
-            await File.WriteAllTextAsync(tokenFilePath, responseContent);
 
             // Return the access token
             return tokenData.GetProperty("access_token").GetString();

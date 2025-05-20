@@ -38,7 +38,10 @@ public class GoogleAuthProvider : IAuthProvider {
 
                 Console.WriteLine("Requesting authorization...");
                 Console.WriteLine("A browser window will open. Please log in and grant the requested permissions.");
-                credential = await authCode.AuthorizeAsync(userId, CancellationToken.None);
+                
+                // Force a new authorization by using a unique user ID
+                var uniqueUserId = $"{userId}_{Guid.NewGuid()}";
+                credential = await authCode.AuthorizeAsync(uniqueUserId, CancellationToken.None);
                 Console.WriteLine("Authorization completed successfully.");
             }
 
