@@ -1,3 +1,5 @@
+using CloudUnify.Core.Models;
+
 namespace CloudUnify.Core;
 
 public interface ICloudProvider {
@@ -17,4 +19,5 @@ public interface ICloudProvider {
     Task<UnifiedCloudFile> CopyFileAsync(string fileId, string newPath);
     Task<UnifiedCloudFile> RenameFileAsync(string fileId, string newName);
     Task<CloudStorageInfo> GetStorageInfoAsync();
+    Task<AccountInfo?> GetAccountInfoAsync();
 }

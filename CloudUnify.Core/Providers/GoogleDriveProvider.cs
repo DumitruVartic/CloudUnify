@@ -3,6 +3,7 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using File = Google.Apis.Drive.v3.Data.File;
+using CloudUnify.Core.Models;
 
 namespace CloudUnify.Core.Providers;
 
@@ -253,6 +254,20 @@ public class GoogleDriveProvider : ICloudProvider {
             UserEmail = about.User.EmailAddress,
             TotalSpace = about.StorageQuota.Limit ?? 0,
             UsedSpace = about.StorageQuota.Usage ?? 0
+        };
+    }
+
+    public async Task<AccountInfo?> GetAccountInfoAsync() {
+        if (_driveService == null) throw new InvalidOperationException("Not connected to Google Drive");
+
+        var aboutRequest = _driveService.About.Get();
+        aboutRequest.Fields = "user";
+
+        var about = await aboutRequest.ExecuteAsync();
+
+        return new AccountInfo {
+            DisplayName = about.User.DisplayName,
+            Email = about.User.EmailAddress
         };
     }
 

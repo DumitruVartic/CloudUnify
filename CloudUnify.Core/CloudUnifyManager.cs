@@ -45,9 +45,26 @@ public class CloudUnifyManager {
 
             if (connected) {
                 Debug.WriteLine($"Provider {providerId} connected successfully");
+                
+                // Get account info from the provider
+                var accountInfo = await provider.GetAccountInfoAsync();
+                var displayName = accountInfo?.DisplayName ?? "Google Drive";
+                var email = accountInfo?.Email ?? string.Empty;
+
+                // Check if we already have a provider with this email
+                var googleProviders = _providers.Values.OfType<GoogleDriveProvider>().ToList();
+                foreach (var existingProvider in googleProviders) {
+                    var existingInfo = await existingProvider.GetAccountInfoAsync();
+                    if (existingInfo?.Email == email) {
+                        Debug.WriteLine($"Provider with email {email} already exists. Disconnecting old provider.");
+                        await DisconnectProviderAsync(existingProvider.Id, userId);
+                        break;
+                    }
+                }
+
                 _providers[providerId] = provider;
                 _cloudUnify.RegisterProvider(provider);
-                _providerStorage.SaveProvider(providerId, "GoogleDrive", provider.Name, userId, clientSecretsPath);
+                _providerStorage.SaveProvider(providerId, "GoogleDrive", displayName, userId, clientSecretsPath);
 
                 // Verify registration
                 var providers = _cloudUnify.GetProviders();
@@ -90,9 +107,25 @@ public class CloudUnifyManager {
             var connected = await provider.ConnectAsync(accessToken);
 
             if (connected) {
+                // Get account info from the provider
+                var accountInfo = await provider.GetAccountInfoAsync();
+                var displayName = accountInfo?.DisplayName ?? "OneDrive";
+                var email = accountInfo?.Email ?? string.Empty;
+
+                // Check if we already have a provider with this email
+                var oneDriveProviders = _providers.Values.OfType<OneDriveProvider>().ToList();
+                foreach (var existingProvider in oneDriveProviders) {
+                    var existingInfo = await existingProvider.GetAccountInfoAsync();
+                    if (existingInfo?.Email == email) {
+                        Debug.WriteLine($"Provider with email {email} already exists. Disconnecting old provider.");
+                        await DisconnectProviderAsync(existingProvider.Id, userId);
+                        break;
+                    }
+                }
+
                 _providers[providerId] = provider;
                 _cloudUnify.RegisterProvider(provider);
-                _providerStorage.SaveProvider(providerId, "OneDrive", provider.Name, userId, clientSecretsPath);
+                _providerStorage.SaveProvider(providerId, "OneDrive", displayName, userId, clientSecretsPath);
                 return (providerId, true);
             }
 

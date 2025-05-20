@@ -130,9 +130,12 @@ public class FileSystemViewModel : BaseViewModel {
                     _ => (string.Empty, false)
                 };
 
-                if (success) await LoadProvidersAsync();
+                if (success) {
+                    await LoadProvidersAsync();
+                    return true;
+                }
 
-                return success;
+                return false;
             }
             finally {
                 // Clean up the temporary file

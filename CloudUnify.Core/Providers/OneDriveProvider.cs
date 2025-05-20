@@ -2,6 +2,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using CloudUnify.Core.Models;
 
 namespace CloudUnify.Core.Providers;
 
@@ -345,23 +346,15 @@ public class OneDriveProvider : ICloudProvider {
     }
 
     public async Task<CloudStorageInfo> GetStorageInfoAsync() {
-        if (!IsConnected) throw new InvalidOperationException("Not connected to OneDrive");
-
         try {
-            var response = await _httpClient.GetAsync($"{ApiBaseUrl}/drive");
+            var response = await _httpClient.GetAsync($"{ApiBaseUrl}/me/drive");
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
-            var drive = JsonSerializer.Deserialize<JsonElement>(content);
+            var driveInfo = JsonSerializer.Deserialize<JsonElement>(content);
 
-            long totalSpace = 0;
-            long usedSpace = 0;
-
-            if (drive.TryGetProperty("quota", out var quota)) {
-                if (quota.TryGetProperty("total", out var total)) totalSpace = total.GetInt64();
-
-                if (quota.TryGetProperty("used", out var used)) usedSpace = used.GetInt64();
-            }
+            var totalSpace = driveInfo.GetProperty("quota").GetProperty("total").GetInt64();
+            var usedSpace = driveInfo.GetProperty("quota").GetProperty("used").GetInt64();
 
             return new CloudStorageInfo {
                 ProviderId = Id,
@@ -374,6 +367,39 @@ public class OneDriveProvider : ICloudProvider {
         catch (Exception ex) {
             Console.WriteLine($"Error getting OneDrive storage info: {ex.Message}");
             throw;
+        }
+    }
+
+    public async Task<AccountInfo?> GetAccountInfoAsync() {
+        try {
+            var response = await _httpClient.GetAsync($"{ApiBaseUrl}/me");
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            var userInfo = JsonSerializer.Deserialize<JsonElement>(content);
+
+            string? displayName = null;
+            string? email = null;
+
+            if (userInfo.TryGetProperty("displayName", out var nameElement)) {
+                displayName = nameElement.GetString();
+            }
+
+            if (userInfo.TryGetProperty("userPrincipalName", out var emailElement)) {
+                email = emailElement.GetString();
+            }
+            else if (userInfo.TryGetProperty("mail", out emailElement)) {
+                email = emailElement.GetString();
+            }
+
+            return new AccountInfo {
+                DisplayName = displayName ?? email ?? "OneDrive User",
+                Email = email ?? _userEmail
+            };
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"Error getting OneDrive account info: {ex.Message}");
+            return null;
         }
     }
 

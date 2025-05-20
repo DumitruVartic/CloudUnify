@@ -55,7 +55,7 @@
                         </div>
                     </button>
                 }
-                <button class="provider-button add-provider" @onclick="ShowAddProviderDialog">
+                <button class="provider-button add-provider" @onclick="ShowProviderSelectionDialog">
                     <i class="bi bi-plus-circle"></i>
                     <span>Add Provider</span>
                 </button>
@@ -202,101 +202,27 @@
         </div>
     }
 
-    @if (_showAddProviderDialog) {
-        <div class="modal-backdrop" @onclick="@(() => _showAddProviderDialog = false)">
-            <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+    @if (_showProviderSelectionDialog) {
+        <div class="modal-backdrop" @onclick="@(() => _showProviderSelectionDialog = false)">
+            <div class="modal-dialog" @onclick:stopPropagation="true">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3 class="modal-title">Add Storage Provider</h3>
-                        <button class="close-button" @onclick="@(() => _showAddProviderDialog = false)">
-                            <i class="bi bi-x"></i>
-                        </button>
-                    </div>
-                    @if (_selectedProvider == null) {
-                        <div class="modal-body">
-                            <div class="provider-options">
-                                <button class="provider-option"
-                                        @onclick="@(() => SelectProvider(StorageProvider.GoogleDrive))">
-                                    <div class="provider-icon google">
-                                        <i class="bi bi-google"></i>
-                                    </div>
-                                    <div class="provider-info">
-                                        <span class="provider-name">Google Drive</span>
-                                        <span class="provider-description">Connect your Google Drive account</span>
-                                    </div>
-                                </button>
-                                <button class="provider-option"
-                                        @onclick="@(() => SelectProvider(StorageProvider.OneDrive))">
-                                    <div class="provider-icon onedrive">
-                                        <i class="bi bi-microsoft"></i>
-                                    </div>
-                                    <div class="provider-info">
-                                        <span class="provider-name">OneDrive</span>
-                                        <span
-                                            class="provider-description">Connect your Microsoft OneDrive account</span>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                    }
-                    else {
-                        <div class="modal-body">
-                            <form @onsubmit="ConnectSelectedProvider">
-                                <div class="mb-3">
-                                    <label for="providerName" class="form-label">Provider Name</label>
-                                    <input type="text" class="form-control" id="providerName" @bind="_providerName"
-                                           required>
-                                    <div class="form-text">A friendly name for this provider (e.g.,
-                                        "@(_selectedProvider == StorageProvider.GoogleDrive ? "Work Google Drive" : "Work OneDrive")").
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="userId" class="form-label">User ID</label>
-                                    <input type="email" class="form-control" id="userId" @bind="_userId" required>
-                                    <div class="form-text">
-                                        Your @(_selectedProvider == StorageProvider.GoogleDrive ? "Google" : "Microsoft") account
-                                        email address.
-                                    </div>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <button type="button" class="btn btn-secondary" @onclick="CancelProviderSelection">
-                                        Back
-                                    </button>
-                                    <button type="submit" class="btn btn-primary">Connect</button>
-                                </div>
-                            </form>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-
-    @if (_showRenameProviderDialog) {
-        <div class="modal-backdrop" @onclick="@(() => _showRenameProviderDialog = false)">
-            <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title">Rename Provider</h3>
-                        <button class="close-button" @onclick="@(() => _showRenameProviderDialog = false)">
+                        <h3>Select Provider</h3>
+                        <button class="close-button" @onclick="@(() => _showProviderSelectionDialog = false)">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
                     <div class="modal-body">
-                        <form @onsubmit="RenameSelectedProvider">
-                            <div class="mb-3">
-                                <label for="newProviderName" class="form-label">New Provider Name</label>
-                                <input type="text" class="form-control" id="newProviderName" @bind="_newProviderName"
-                                       required>
-                                <div class="form-text">Enter a new friendly name for this provider.</div>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <button type="button" class="btn btn-secondary"
-                                        @onclick="@(() => _showRenameProviderDialog = false)">Cancel
-                                </button>
-                                <button type="submit" class="btn btn-primary">Save</button>
-                            </div>
-                        </form>
+                        <div class="provider-options">
+                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.GoogleDrive))">
+                                <i class="bi bi-google"></i>
+                                <span>Google Drive</span>
+                            </button>
+                            <button class="provider-option" @onclick="@(() => ConnectProvider(StorageProvider.OneDrive))">
+                                <i class="bi bi-microsoft"></i>
+                                <span>OneDrive</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1030,18 +956,13 @@
 
 @code {
     private bool _showNewFolderDialog;
-    private bool _showAddProviderDialog;
-    private bool _showRenameProviderDialog;
+    private bool _showProviderSelectionDialog;
     private bool _showUploadDialog;
     private string _newFolderName;
     private FileSystemItem _contextMenuItem;
     private double _contextMenuX;
     private double _contextMenuY;
     private StorageProvider? _selectedProvider;
-    private string _userId = "";
-    private string _providerName = "";
-    private string _newProviderName = "";
-    private StorageProviderInfo? _selectedProviderForRename;
     private string _selectedUploadProviderId = "";
     private IBrowserFile? _selectedFile;
 
@@ -1064,96 +985,13 @@
         };
     }
 
-    private void ShowAddProviderDialog() {
-        _showAddProviderDialog = true;
-        _selectedProvider = null;
-        _userId = "";
-        _providerName = "";
+    private void ShowProviderSelectionDialog() {
+        _showProviderSelectionDialog = true;
     }
 
-    private void SelectProvider(StorageProvider provider) {
-        _selectedProvider = provider;
-        _userId = "";
-        _providerName = provider switch {
-            StorageProvider.GoogleDrive => "Google Drive",
-            StorageProvider.OneDrive => "OneDrive",
-            _ => ""
-        };
-    }
-
-    private void CancelProviderSelection() {
-        _selectedProvider = null;
-        _userId = "";
-        _providerName = "";
-    }
-
-    private async Task ConnectSelectedProvider(EventArgs e) {
-        if (_selectedProvider == null || string.IsNullOrWhiteSpace(_userId) || string.IsNullOrWhiteSpace(_providerName)) return;
-
-        try {
-            var clientSecrets = _selectedProvider.Value switch {
-                StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
-                StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
-                _ => null
-            };
-
-            if (string.IsNullOrEmpty(clientSecrets)) {
-                await NavigationService.NavigateToAddStorageAsync();
-                return;
-            }
-
-            var tempPath = Path.GetTempFileName();
-            await File.WriteAllTextAsync(tempPath, clientSecrets);
-
-            try {
-                var (providerId, success) = _selectedProvider.Value switch {
-                    StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
-                        tempPath,
-                        "CloudUnify",
-                        "token_store",
-                        _userId
-                    ),
-                    StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
-                        tempPath,
-                        "CloudUnify",
-                        "token_store",
-                        _userId
-                    ),
-                    _ => (string.Empty, false)
-                };
-
-                if (success) {
-                    // Update the provider name in storage
-                    var provider = ProviderStorage.GetProvider(providerId);
-                    if (provider != null) {
-                        ProviderStorage.SaveProvider(
-                            providerId,
-                            provider.Type,
-                            _providerName,
-                            provider.UserId,
-                            provider.ClientSecretsPath
-                        );
-                    }
-
-                    _showAddProviderDialog = false;
-                    _selectedProvider = null;
-                    _userId = "";
-                    _providerName = "";
-                    StateHasChanged();
-                }
-            }
-            finally {
-                try {
-                    File.Delete(tempPath);
-                }
-                catch (Exception ex) {
-                    Console.WriteLine($"Error deleting temporary file: {ex.Message}");
-                }
-            }
-        }
-        catch (Exception ex) {
-            Console.WriteLine($"Error connecting provider: {ex.Message}");
-        }
+    private async Task ConnectProvider(StorageProvider provider) {
+        _showProviderSelectionDialog = false;
+        await ViewModel.ConnectProviderAsync(provider);
     }
 
     private void OnItemClick(FileSystemItem item) {
@@ -1248,46 +1086,6 @@
             "dropbox" => "dropbox",
             _ => "cloud"
         };
-    }
-
-    private void ShowRenameProviderDialog(StorageProviderInfo provider) {
-        _selectedProviderForRename = provider;
-        _newProviderName = provider.AccountName;
-        _showRenameProviderDialog = true;
-    }
-
-    private async Task RenameSelectedProvider() {
-        if (_selectedProviderForRename == null || string.IsNullOrWhiteSpace(_newProviderName)) return;
-
-        var provider = ProviderStorage.GetProvider(_selectedProviderForRename.ProviderId);
-        if (provider != null) {
-            ProviderStorage.SaveProvider(
-                provider.Id,
-                provider.Type,
-                _newProviderName,
-                provider.UserId,
-                provider.ClientSecretsPath
-            );
-
-            // Refresh the view by updating the provider name in the ViewModel
-            var existingProvider = ViewModel.AvailableProviders.FirstOrDefault(p => p.ProviderId == provider.Id);
-            if (existingProvider != null) {
-                var index = ViewModel.AvailableProviders.IndexOf(existingProvider);
-                ViewModel.AvailableProviders[index] = new StorageProviderInfo {
-                    ProviderId = existingProvider.ProviderId,
-                    ProviderType = existingProvider.ProviderType,
-                    AccountName = _newProviderName,
-                    UsedSpace = existingProvider.UsedSpace,
-                    TotalSpace = existingProvider.TotalSpace,
-                    IsConnected = existingProvider.IsConnected,
-                    LastConnected = existingProvider.LastConnected
-                };
-            }
-        }
-
-        _showRenameProviderDialog = false;
-        _selectedProviderForRename = null;
-        _newProviderName = "";
     }
 
     private void ShowUploadDialog() {
