@@ -126,13 +126,16 @@ public class CloudUnifyManager {
                 _providers[providerId] = provider;
                 _cloudUnify.RegisterProvider(provider);
                 _providerStorage.SaveProvider(providerId, "OneDrive", displayName, userId, clientSecretsPath);
+                _providerStorage.UpdateConnectionState(providerId, true, userId);
                 return (providerId, true);
             }
 
+            _providerStorage.UpdateConnectionState(providerId, false);
             return (providerId, false);
         }
         catch (Exception ex) {
             Console.WriteLine($"Error connecting to OneDrive: {ex.Message}");
+            _providerStorage.UpdateConnectionState(providerId ?? string.Empty, false);
             return (providerId ?? string.Empty, false);
         }
     }
