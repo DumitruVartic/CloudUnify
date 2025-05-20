@@ -35,8 +35,8 @@
         <div class="provider-selector">
             <div class="provider-list">
                 <button
-                        class="provider-button @(ViewModel.CurrentProviderId == null ? "active" : "")"
-                        @onclick="@(() => ViewModel.SwitchToUnifiedView())">
+                    class="provider-button @(ViewModel.CurrentProviderId == null ? "active" : "")"
+                    @onclick="@(() => ViewModel.SwitchToUnifiedView())">
                     <i class="bi bi-collection"></i>
                     <div class="provider-info">
                         <span class="provider-name">All Providers</span>
@@ -45,13 +45,13 @@
                 </button>
                 @foreach (var provider in ViewModel.AvailableProviders) {
                     <button
-                            class="provider-button @(provider.ProviderId == ViewModel.CurrentProviderId ? "active" : "")"
-                            @onclick="@(() => ViewModel.CurrentProviderId = provider.ProviderId)">
+                        class="provider-button @(provider.ProviderId == ViewModel.CurrentProviderId ? "active" : "")"
+                        @onclick="@(() => ViewModel.CurrentProviderId = provider.ProviderId)">
                         <i class="bi bi-@GetProviderIcon(provider.ProviderType)"></i>
                         <div class="provider-info">
                             <span class="provider-name">@provider.AccountName</span>
                             <span
-                                    class="provider-storage">@FormatFileSize(provider.UsedSpace) / @FormatFileSize(provider.TotalSpace)</span>
+                                class="provider-storage">@FormatFileSize(provider.UsedSpace) / @FormatFileSize(provider.TotalSpace)</span>
                         </div>
                     </button>
                 }
@@ -233,7 +233,7 @@
                                     <div class="provider-info">
                                         <span class="provider-name">OneDrive</span>
                                         <span
-                                                class="provider-description">Connect your Microsoft OneDrive account</span>
+                                            class="provider-description">Connect your Microsoft OneDrive account</span>
                                     </div>
                                 </button>
                             </div>
@@ -1057,10 +1057,10 @@
 
     private string GetProviderIcon(StorageProvider provider) {
         return provider switch {
-                StorageProvider.GoogleDrive => "google",
-                StorageProvider.OneDrive => "microsoft",
-                StorageProvider.Dropbox => "dropbox",
-                _ => "cloud"
+            StorageProvider.GoogleDrive => "google",
+            StorageProvider.OneDrive => "microsoft",
+            StorageProvider.Dropbox => "dropbox",
+            _ => "cloud"
         };
     }
 
@@ -1075,9 +1075,9 @@
         _selectedProvider = provider;
         _userId = "";
         _providerName = provider switch {
-                StorageProvider.GoogleDrive => "Google Drive",
-                StorageProvider.OneDrive => "OneDrive",
-                _ => ""
+            StorageProvider.GoogleDrive => "Google Drive",
+            StorageProvider.OneDrive => "OneDrive",
+            _ => ""
         };
     }
 
@@ -1092,9 +1092,9 @@
 
         try {
             var clientSecrets = _selectedProvider.Value switch {
-                    StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
-                    StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
-                    _ => null
+                StorageProvider.GoogleDrive => await SecureStorageService.GetGoogleDriveSecretsAsync(),
+                StorageProvider.OneDrive => await SecureStorageService.GetOneDriveSecretsAsync(),
+                _ => null
             };
 
             if (string.IsNullOrEmpty(clientSecrets)) {
@@ -1107,19 +1107,19 @@
 
             try {
                 var (providerId, success) = _selectedProvider.Value switch {
-                        StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
-                                tempPath,
-                                "CloudUnify",
-                                "token_store",
-                                _userId
-                        ),
-                        StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
-                                tempPath,
-                                "CloudUnify",
-                                "token_store",
-                                _userId
-                        ),
-                        _ => (string.Empty, false)
+                    StorageProvider.GoogleDrive => await CloudUnifyManager.ConnectGoogleDriveAsync(
+                        tempPath,
+                        "CloudUnify",
+                        "token_store",
+                        _userId
+                    ),
+                    StorageProvider.OneDrive => await CloudUnifyManager.ConnectOneDriveAsync(
+                        tempPath,
+                        "CloudUnify",
+                        "token_store",
+                        _userId
+                    ),
+                    _ => (string.Empty, false)
                 };
 
                 if (success) {
@@ -1127,11 +1127,11 @@
                     var provider = ProviderStorage.GetProvider(providerId);
                     if (provider != null) {
                         ProviderStorage.SaveProvider(
-                                providerId,
-                                provider.Type,
-                                _providerName,
-                                provider.UserId,
-                                provider.ClientSecretsPath
+                            providerId,
+                            provider.Type,
+                            _providerName,
+                            provider.UserId,
+                            provider.ClientSecretsPath
                         );
                     }
 
@@ -1219,34 +1219,34 @@
         if (item.IsFolder) return "folder-fill";
 
         return item.Extension?.ToLowerInvariant() switch {
-                ".pdf" => "file-pdf",
-                ".doc" or ".docx" => "file-word",
-                ".xls" or ".xlsx" => "file-excel",
-                ".ppt" or ".pptx" => "file-ppt",
-                ".txt" => "file-text",
-                ".jpg" or ".jpeg" or ".png" or ".gif" => "file-image",
-                ".mp3" or ".wav" or ".ogg" => "file-music",
-                ".mp4" or ".avi" or ".mkv" => "file-play",
-                ".zip" or ".rar" or ".7z" => "file-zip",
-                _ => "file"
+            ".pdf" => "file-pdf",
+            ".doc" or ".docx" => "file-word",
+            ".xls" or ".xlsx" => "file-excel",
+            ".ppt" or ".pptx" => "file-ppt",
+            ".txt" => "file-text",
+            ".jpg" or ".jpeg" or ".png" or ".gif" => "file-image",
+            ".mp3" or ".wav" or ".ogg" => "file-music",
+            ".mp4" or ".avi" or ".mkv" => "file-play",
+            ".zip" or ".rar" or ".7z" => "file-zip",
+            _ => "file"
         };
     }
 
     private string GetProviderColor(string provider) {
         return provider?.ToLowerInvariant() switch {
-                "google drive" => "#4285F4",
-                "onedrive" => "#0078D4",
-                "dropbox" => "#0061FF",
-                _ => "#6c757d"
+            "google drive" => "#4285F4",
+            "onedrive" => "#0078D4",
+            "dropbox" => "#0061FF",
+            _ => "#6c757d"
         };
     }
 
     private string GetProviderIcon(string provider) {
         return provider?.ToLowerInvariant() switch {
-                "google drive" => "google",
-                "onedrive" => "microsoft",
-                "dropbox" => "dropbox",
-                _ => "cloud"
+            "google drive" => "google",
+            "onedrive" => "microsoft",
+            "dropbox" => "dropbox",
+            _ => "cloud"
         };
     }
 
@@ -1262,11 +1262,11 @@
         var provider = ProviderStorage.GetProvider(_selectedProviderForRename.ProviderId);
         if (provider != null) {
             ProviderStorage.SaveProvider(
-                    provider.Id,
-                    provider.Type,
-                    _newProviderName,
-                    provider.UserId,
-                    provider.ClientSecretsPath
+                provider.Id,
+                provider.Type,
+                _newProviderName,
+                provider.UserId,
+                provider.ClientSecretsPath
             );
 
             // Refresh the view by updating the provider name in the ViewModel
@@ -1274,13 +1274,13 @@
             if (existingProvider != null) {
                 var index = ViewModel.AvailableProviders.IndexOf(existingProvider);
                 ViewModel.AvailableProviders[index] = new StorageProviderInfo {
-                        ProviderId = existingProvider.ProviderId,
-                        ProviderType = existingProvider.ProviderType,
-                        AccountName = _newProviderName,
-                        UsedSpace = existingProvider.UsedSpace,
-                        TotalSpace = existingProvider.TotalSpace,
-                        IsConnected = existingProvider.IsConnected,
-                        LastConnected = existingProvider.LastConnected
+                    ProviderId = existingProvider.ProviderId,
+                    ProviderType = existingProvider.ProviderType,
+                    AccountName = _newProviderName,
+                    UsedSpace = existingProvider.UsedSpace,
+                    TotalSpace = existingProvider.TotalSpace,
+                    IsConnected = existingProvider.IsConnected,
+                    LastConnected = existingProvider.LastConnected
                 };
             }
         }
@@ -1320,10 +1320,10 @@
 
             var providerId = ViewModel.CurrentProviderId ?? _selectedUploadProviderId;
             var uploadedFile = await CloudUnifyManager.UploadFileAsync(
-                    memoryStream.ToArray(),
-                    _selectedFile.Name,
-                    ViewModel.CurrentPath,
-                    providerId
+                memoryStream.ToArray(),
+                _selectedFile.Name,
+                ViewModel.CurrentPath,
+                providerId
             );
 
             await ViewModel.LoadCurrentFolder();
